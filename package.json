@@ -1,0 +1,52 @@
+{
+  "name": "@jwayong/pi-azure-devops",
+  "version": "0.1.0",
+  "description": "Azure DevOps integration for Pi coding agent — work items, pipelines, repos, and more",
+  "keywords": ["pi-package", "azure-devops"],
+  "license": "MIT",
+  "author": "jwayong",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jwayong/pi-azure-devops.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jwayong/pi-azure-devops/issues"
+  },
+  "homepage": "https://github.com/jwayong/pi-azure-devops#readme",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/extension/index.js",
+  "exports": {
+    ".": "./dist/extension/index.js"
+  },
+  "files": [
+    "dist/",
+    "skills/",
+    "prompts/"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "prepublishOnly": "npm run build",
+    "clean": "rm -rf dist/"
+  },
+  "pi": {
+    "extensions": ["./dist/extension/index.js"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"]
+  },
+  "dependencies": {
+    "azure-devops-node-api": "^15.1.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.70.0",
+    "typebox": ">=1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "tsx": "^4.19.0"
+  }
+}
