@@ -8,6 +8,10 @@ import { queryWorkItemsTool } from "../tools/query-work-items.js";
 import { listWorkItemTypesTool } from "../tools/list-work-item-types.js";
 import { getWorkItemCommentsTool } from "../tools/get-work-item-comments.js";
 import { getWorkItemRevisionsTool } from "../tools/get-work-item-revisions.js";
+import { createWorkItemTool } from "../tools/create-work-item.js";
+import { updateWorkItemTool } from "../tools/update-work-item.js";
+import { addWorkItemCommentTool } from "../tools/add-work-item-comment.js";
+import { manageWorkItemLinksTool } from "../tools/manage-work-item-links.js";
 
 /** All tools to register */
 const tools = [
@@ -17,6 +21,10 @@ const tools = [
 	listWorkItemTypesTool,
 	getWorkItemCommentsTool,
 	getWorkItemRevisionsTool,
+	createWorkItemTool,
+	updateWorkItemTool,
+	addWorkItemCommentTool,
+	manageWorkItemLinksTool,
 ];
 
 // Type alias for tool execute signature parameters
