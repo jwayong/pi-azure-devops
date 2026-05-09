@@ -92,3 +92,31 @@ function formatMockReport(config: AdoConfig): string {
 		"⚠️ Running in mock mode. No network calls were made.",
 	].join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Tool definition (matches the pattern used by other tools)
+// ---------------------------------------------------------------------------
+
+export const doctorTool = {
+	name: "ado_doctor",
+	description:
+		"Check Azure DevOps configuration, authentication readiness, and connection health. " +
+		"Run this first to verify your setup before using other ADO tools.",
+	parameters: Type.Object({
+		mock: Type.Optional(Type.Boolean({ description: "Use mock mode (report healthy without network)" })),
+	}),
+	promptSnippet: "Check Azure DevOps configuration and connectivity",
+	promptGuidelines: [
+		"Use ado_doctor before other ADO tools to verify the user's setup is working.",
+	],
+
+	async execute(
+		_toolCallId: string,
+		params: { mock?: boolean },
+		signal: AbortSignal | undefined,
+		_onUpdate: undefined,
+		ctx: { cwd: string; config?: AdoConfig },
+	): Promise<ToolResult> {
+		return runDoctor(ctx.cwd, ctx.config, params.mock, signal);
+	},
+};
