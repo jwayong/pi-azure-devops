@@ -71,6 +71,26 @@ Or configure in `.pi/settings.json`:
 > Update work item #1234 state to Closed
 ```
 
+### 4. Use prompt templates
+
+Type `/` in the prompt editor to see available templates:
+
+| Command | Description |
+|---------|-------------|
+| `/ado-triage [filter]` | Triage untriaged work items — suggest priority, area, iteration, assignee |
+| `/ado-status-report [group-by]` | Generate a status report grouped by state, assignee, iteration, or type |
+| `/ado-create-batch <items>` | Batch-create work items from a structured list |
+| `/ado-review-history <id>` | Review revision history with a chronological narrative |
+
+Examples:
+
+```
+/ado-triage AND [System.WorkItemType] = 'Bug'
+/ado-status-report assignee
+/ado-create-batch - Bug: Fix crash [priority:1]  - Task: Update docs
+/ado-review-history 1234
+```
+
 ## Authentication
 
 | Method | Setup | Best for |
@@ -89,6 +109,40 @@ Auto-detect: tries Azure CLI first, falls back to PAT.
 | `readonly` | Mutation tools blocked entirely |
 
 Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
+
+## Prompt Templates
+
+The package includes 4 prompt templates for common ADO workflows. They're automatically available after installing the package.
+
+| Command | Description | Arguments |
+|---------|-------------|----------|
+| `/ado-triage` | Triage untriaged work items | Optional WIQL filter |
+| `/ado-status-report` | Generate a status report | `state`, `assignee`, `iteration`, or `type` |
+| `/ado-create-batch` | Batch-create work items | Bullet list of items |
+| `/ado-review-history` | Review revision history | Work item ID |
+
+### Usage
+
+Type `/ado-` in the prompt editor to see autocomplete suggestions. Each template expands into a step-by-step workflow that uses the ADO tools.
+
+```bash
+# Triage new bugs
+/ado-triage AND [System.WorkItemType] = 'Bug'
+
+# Status report grouped by assignee
+/ado-status-report assignee
+
+# Create multiple items at once
+/ado-create-batch
+- Bug: Fix payment timeout [priority:1, tags:payments;critical]
+- Task: Write integration tests for checkout
+- User Story: Add refund support
+
+# Review what happened to work item #1234
+/ado-review-history 1234
+```
+
+If you installed the package locally (e.g., `pi -e ./`), the templates are loaded from the `prompts/` directory as declared in `package.json`.
 
 ## Mock Mode
 
