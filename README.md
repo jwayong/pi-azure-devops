@@ -110,6 +110,28 @@ Auto-detect: tries Azure CLI first, falls back to PAT.
 
 Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 
+## Tools Reference
+
+### Read Tools
+
+| Tool | Description |
+|------|-------------|
+| `ado_doctor` | Verify configuration, auth, and connection health |
+| `ado_get_work_item` | Get a single work item by ID |
+| `ado_query_work_items` | Search work items using WIQL queries |
+| `ado_list_work_item_types` | List valid work item types for the project |
+| `ado_get_work_item_comments` | Get comments/discussion on a work item |
+| `ado_get_work_item_revisions` | Get revision/change history for a work item |
+
+### Write Tools (gated by safety level)
+
+| Tool | Description |
+|------|-------------|
+| `ado_create_work_item` | Create a new work item (type, title, description, fields) |
+| `ado_update_work_item` | Update fields on an existing work item |
+| `ado_add_work_item_comment` | Add a comment to a work item |
+| `ado_manage_work_item_links` | Add or remove relation links between work items |
+
 ## Prompt Templates
 
 The package includes 4 prompt templates for common ADO workflows. They're automatically available after installing the package.

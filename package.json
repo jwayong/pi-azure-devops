@@ -2,7 +2,7 @@
   "name": "@jwayong/pi-azure-devops",
   "version": "0.1.0",
   "description": "Azure DevOps integration for Pi coding agent — work items, pipelines, repos, and more",
-  "keywords": ["pi-package", "azure-devops"],
+  "keywords": ["pi-package", "pi-extension", "azure-devops", "ado", "work-items", "coding-agent"],
   "license": "MIT",
   "author": "jwayong",
   "repository": {
@@ -30,7 +30,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test test/**/*.test.ts",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm test && npm run clean && npm run build",
     "clean": "rm -rf dist/"
   },
   "pi": {
