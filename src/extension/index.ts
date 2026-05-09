@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { resolveConfig, type AdoConfig } from "../config/index.js";
+import { isMutationTool, formatMutationSummary } from "../safety/index.js";
 import { doctorTool } from "../tools/doctor.js";
 import { getWorkItemTool } from "../tools/get-work-item.js";
 import { queryWorkItemsTool } from "../tools/query-work-items.js";
@@ -53,4 +54,29 @@ export default function (pi: ExtensionAPI) {
 			},
 		});
 	}
+
+	// Safety interceptor — gate mutation tools based on safety level
+	pi.on("tool_call", async (event, ctx) => {
+		if (!config) return;
+		if (!isMutationTool(event.toolName)) return;
+
+		// Readonly: block all mutations
+		if (config.safetyLevel === "readonly") {
+			return { block: true, reason: `Tool "${event.toolName}" is blocked in readonly safety mode. Change ADO_SAFETY_LEVEL or ado.safetyLevel to "open" or "confirm".` };
+		}
+
+		// Confirm: ask user before proceeding
+		if (config.safetyLevel === "confirm") {
+			const summary = formatMutationSummary(event.toolName, event.input as Record<string, unknown>);
+			const approved = await ctx.ui.confirm(
+				"ADO Mutation",
+				`${summary}\n\nAllow this operation?`,
+			);
+			if (!approved) {
+				return { block: true, reason: `User declined: ${summary}` };
+			}
+		}
+
+		// Open: pass through
+	});
 }
