@@ -12,6 +12,7 @@ import { createWorkItemTool } from "../tools/create-work-item.js";
 import { updateWorkItemTool } from "../tools/update-work-item.js";
 import { addWorkItemCommentTool } from "../tools/add-work-item-comment.js";
 import { manageWorkItemLinksTool } from "../tools/manage-work-item-links.js";
+import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 
 /** All tools to register */
 const tools = [
@@ -43,6 +44,12 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		config = resolveConfig(ctx.cwd);
 		ctx.ui.notify(`@jwayong/pi-azure-devops loaded (project: ${config.project})`, "info");
+
+		// Register #id autocomplete if config allows
+		registerAutocomplete(
+			(wrapper) => ctx.ui.addAutocompleteProvider(wrapper),
+			config,
+		);
 	});
 
 	// Register all tools
