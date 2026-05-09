@@ -9,16 +9,7 @@ export function formatAdoError(error: unknown): string {
 	if (error instanceof Error) {
 		const msg = error.message;
 
-		// Common ADO error patterns
-		if (msg.includes("401") || msg.includes("Unauthorized")) {
-			return "Authentication failed. Check your PAT or Azure CLI login.";
-		}
-		if (msg.includes("403") || msg.includes("Forbidden")) {
-			return "Permission denied. Your credentials lack access to this resource.";
-		}
-		if (msg.includes("404") || msg.includes("Not Found")) {
-			return "Resource not found. Check the organization URL and project name.";
-		}
+		// Common ADO error patterns — check specific TF/VS codes before generic HTTP status
 		if (msg.includes("TF401232")) {
 			return "Project not found. Verify the project name in your configuration.";
 		}
@@ -27,6 +18,15 @@ export function formatAdoError(error: unknown): string {
 		}
 		if (msg.includes("VS402335")) {
 			return "Invalid work item type. Use ado_list_work_item_types to see valid types.";
+		}
+		if (msg.includes("401") || msg.includes("Unauthorized")) {
+			return "Authentication failed. Check your PAT or Azure CLI login.";
+		}
+		if (msg.includes("403") || msg.includes("Forbidden")) {
+			return "Permission denied. Your credentials lack access to this resource.";
+		}
+		if (msg.includes("404") || msg.includes("Not Found")) {
+			return "Resource not found. Check the organization URL and project name.";
 		}
 		if (msg.includes("rate") || msg.includes("429")) {
 			return "Rate limited by Azure DevOps. Wait a moment and try again.";
