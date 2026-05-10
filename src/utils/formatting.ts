@@ -152,3 +152,209 @@ function formatFieldValue(value: unknown): string {
 	}
 	return String(value);
 }
+
+// ---------------------------------------------------------------------------
+// Team formatting
+// ---------------------------------------------------------------------------
+
+/** A team from CoreApi.getTeams() */
+interface TeamLike {
+	id?: string;
+	name?: string;
+	description?: string;
+	url?: string;
+}
+
+export function formatTeam(team: TeamLike): string {
+	const lines: string[] = [];
+	lines.push(`**${team.name ?? "Unknown"}** (id: ${team.id ?? "?"})`);
+	if (team.description) lines.push(`  ${team.description}`);
+	if (team.url) lines.push(`  URL: ${team.url}`);
+	return lines.join("\n");
+}
+
+export function formatTeamList(teams: TeamLike[]): string {
+	if (teams.length === 0) return "No teams found.";
+	return teams.map(formatTeam).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Board formatting
+// ---------------------------------------------------------------------------
+
+/** A board reference from WorkApi.getBoards() */
+interface BoardRefLike {
+	id?: string;
+	name?: string;
+	url?: string;
+}
+
+/** A full board from WorkApi.getBoard() */
+interface BoardLike {
+	id?: string;
+	name?: string;
+	url?: string;
+	canEdit?: boolean;
+	columns?: Array<{
+		id?: string;
+		name?: string;
+		columnType?: number;
+		itemLimit?: number | null;
+		stateMappings?: Record<string, string>;
+	}>;
+	rows?: Array<{ id?: string; name?: string }>;
+}
+
+const COLUMN_TYPE_NAMES: Record<number, string> = {
+	0: "Incoming",
+	1: "InProgress",
+	2: "Outgoing",
+};
+
+export function formatBoardRef(board: BoardRefLike): string {
+	return `**${board.name ?? "Unknown"}** (id: ${board.id ?? "?"})${board.url ? ` — ${board.url}` : ""}`;
+}
+
+export function formatBoardList(boards: BoardRefLike[]): string {
+	if (boards.length === 0) return "No boards found.";
+	return boards.map(formatBoardRef).join("\n");
+}
+
+export function formatBoard(board: BoardLike): string {
+	const lines: string[] = [];
+	lines.push(`# Board: ${board.name ?? "Unknown"} (id: ${board.id ?? "?"})`);
+	if (board.canEdit !== undefined) lines.push(`- **Editable:** ${board.canEdit ? "Yes" : "No"}`);
+
+	const columns = board.columns ?? [];
+	if (columns.length > 0) {
+		lines.push("");
+		lines.push("## Columns");
+		for (const col of columns) {
+		const typeLabel = COLUMN_TYPE_NAMES[col.columnType ?? -1] ?? "Unknown";
+		const limitStr = col.itemLimit != null ? ` (limit: ${col.itemLimit})` : "";
+		lines.push(`- **${col.name ?? "?"}** [${typeLabel}]${limitStr}`);
+		if (col.stateMappings) {
+			const mappings = Object.entries(col.stateMappings)
+				.map(([type, state]) => `${type} → ${state}`)
+				.join(", ");
+			lines.push(`  Mappings: ${mappings}`);
+		}
+		}
+	}
+
+	const rows = board.rows ?? [];
+	if (rows.length > 0) {
+		lines.push("");
+		lines.push(`## Rows (${rows.length})`);
+		for (const row of rows) {
+			lines.push(`- ${row.name || "(default)"}`);
+		}
+	}
+
+	if (board.url) {
+		lines.push("");
+		lines.push(`**URL:** ${board.url}`);
+	}
+
+	return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Iteration formatting
+// ---------------------------------------------------------------------------
+
+interface IterationLike {
+	id?: string;
+	name?: string;
+	path?: string;
+	attributes?: {
+		startDate?: string;
+		finishDate?: string;
+		timeFrame?: string;
+	};
+	url?: string;
+}
+
+const TIMEFRAME_LABELS: Record<string, string> = {
+	current: "🔵 Current",
+	past: "⚪ Past",
+	future: "🟢 Future",
+};
+
+export function formatIteration(iteration: IterationLike): string {
+	const attrs = iteration.attributes ?? {};
+	const tf = attrs.timeFrame ?? "";
+	const tfLabel = TIMEFRAME_LABELS[tf.toLowerCase()] ?? tf;
+	const start = attrs.startDate ? new Date(attrs.startDate).toISOString().slice(0, 10) : "?";
+	const end = attrs.finishDate ? new Date(attrs.finishDate).toISOString().slice(0, 10) : "?";
+
+	const lines: string[] = [];
+	lines.push(`**${iteration.name ?? "Unknown"}** (id: ${iteration.id ?? "?"}) ${tfLabel}`);
+	lines.push(`  ${start} → ${end}`);
+	if (iteration.path) lines.push(`  Path: ${iteration.path}`);
+	return lines.join("\n");
+}
+
+export function formatIterationList(iterations: IterationLike[]): string {
+	if (iterations.length === 0) return "No iterations found.";
+	return iterations.map(formatIteration).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Capacity formatting
+// ---------------------------------------------------------------------------
+
+interface CapacityLike {
+	teamMembers?: Array<{
+		teamMember?: {
+			displayName?: string;
+			uniqueName?: string;
+		};
+		activities?: Array<{
+			name?: string;
+			capacityPerDay?: number;
+		}>;
+		daysOff?: Array<{
+			start?: string;
+			end?: string;
+		}>;
+	}>;
+	totalCapacityPerDay?: number;
+	totalDaysOff?: number;
+}
+
+export function formatCapacity(capacity: CapacityLike): string {
+	const members = capacity.teamMembers ?? [];
+	const lines: string[] = [];
+
+	lines.push(`# Team Capacity`);
+	lines.push(`- **Total capacity:** ${capacity.totalCapacityPerDay ?? 0} hours/day`);
+	lines.push(`- **Total days off:** ${capacity.totalDaysOff ?? 0}`);
+
+	if (members.length > 0) {
+		lines.push("");
+		lines.push("## Team Members");
+		for (const m of members) {
+			const name = m.teamMember?.displayName ?? "Unknown";
+			const activities = m.activities ?? [];
+			const actStr = activities
+				.map((a) => `${a.name ?? "?"}: ${a.capacityPerDay ?? 0}h/day`)
+				.join(", ");
+			const daysOff = m.daysOff ?? [];
+			const offStr = daysOff.length > 0
+				? daysOff
+					.map((d) => {
+						const s = d.start ? new Date(d.start).toISOString().slice(0, 10) : "?";
+						const e = d.end ? new Date(d.end).toISOString().slice(0, 10) : "?";
+						return s === e ? s : `${s}–${e}`;
+					})
+					.join(", ")
+				: "none";
+
+			lines.push(`- **${name}**: ${actStr || "no activities"}`);
+			lines.push(`  Days off: ${offStr}`);
+		}
+	}
+
+	return lines.join("\n");
+}
