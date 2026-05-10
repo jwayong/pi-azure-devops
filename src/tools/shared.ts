@@ -14,6 +14,11 @@ export const MockParam = Type.Optional(
 	Type.Boolean({ description: "Use mock/fixture data instead of live ADO API" }),
 );
 
+/** Team parameter — overrides config default team */
+export const TeamParam = Type.Optional(
+	Type.String({ description: "Team name (defaults to ado.team from config)" }),
+);
+
 /** Work item ID parameter */
 export const WorkItemIdParam = Type.Object({
 	workItemId: Type.Number({ description: "Work item ID" }),
@@ -71,8 +76,41 @@ export const MUTATION_TOOLS = new Set([
 	"ado_update_work_item",
 	"ado_add_work_item_comment",
 	"ado_manage_work_item_links",
+	// Phase 5: Boards & Backlogs
+	"ado_set_board_columns",
+	"ado_set_iteration",
+	"ado_set_capacity",
 ]);
 
 export function isMutationTool(toolName: string): boolean {
 	return MUTATION_TOOLS.has(toolName);
+}
+
+// ---------------------------------------------------------------------------
+// Team context
+// ---------------------------------------------------------------------------
+
+/**
+ * ADO TeamContext — { project, team }.
+ * Used by all WorkApi (boards, backlogs, iterations, capacity) methods.
+ */
+export interface TeamContext {
+	project: string;
+	team: string;
+}
+
+/**
+ * Resolve a TeamContext from config + optional param override.
+ *
+ * - If `teamParam` is provided, use it.
+ * - Otherwise, fall back to `config.team`.
+ * - Returns `undefined` if neither is set (caller should return an error).
+ */
+export function resolveTeamContext(
+	config: AdoConfig,
+	teamParam?: string,
+): TeamContext | undefined {
+	const team = teamParam?.trim() || config.team;
+	if (!team) return undefined;
+	return { project: config.project, team };
 }

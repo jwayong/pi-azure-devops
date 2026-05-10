@@ -82,6 +82,25 @@ export function formatMutationSummary(toolName: string, params: MutationParams):
 			const relType = String(params.relationType ?? "link");
 			return `${operation === "add" ? "Add" : "Remove"} ${relType} link: #${sourceId} ${operation === "add" ? "→" : "✕"} #${targetId}`;
 		}
+		case "ado_set_board_columns": {
+			const boardId = String(params.boardId ?? "?");
+			const team = String(params.team ?? "(default team)");
+			const columns = params.columns as Array<{ name?: string }> | undefined;
+			const colNames = columns?.map((c) => c.name ?? "?").join(" → ") ?? "(none)";
+			return `Set board columns for "${boardId}" (${team}): ${colNames}`;
+		}
+		case "ado_set_iteration": {
+			const op = String(params.operation ?? "add");
+			const iterationId = String(params.iterationId ?? "?");
+			const team = String(params.team ?? "(default team)");
+			return `${op === "add" ? "Add" : "Remove"} iteration ${iterationId} ${op === "add" ? "to" : "from"} ${team}`;
+		}
+		case "ado_set_capacity": {
+			const iterationId = String(params.iterationId ?? "?");
+			const capacities = params.capacities as Array<unknown> | undefined;
+			const count = capacities?.length ?? 0;
+			return `Set capacity for ${count} team member(s) in iteration ${iterationId}`;
+		}
 		default:
 			return `${toolName}: ${JSON.stringify(params).slice(0, 100)}`;
 	}

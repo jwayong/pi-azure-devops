@@ -18,6 +18,8 @@ export interface AdoConfig {
 	orgUrl: string;
 	/** Default project name */
 	project: string;
+	/** Default team name (optional — tools that need teams can require it as a param if unset) */
+	team: string | undefined;
 	/** Authentication method */
 	authMethod: AuthMethod;
 	/** Safety level for mutation tools */
@@ -36,6 +38,7 @@ export interface AdoConfig {
 export interface AdoSettings {
 	orgUrl?: string;
 	project?: string;
+	team?: string;
 	authMethod?: string;
 	safetyLevel?: string;
 	defaultWorkItemType?: string;
@@ -59,7 +62,7 @@ export class ConfigError extends Error {
 // Defaults
 // ---------------------------------------------------------------------------
 
-const DEFAULTS: Omit<AdoConfig, "orgUrl" | "project"> = {
+const DEFAULTS: Omit<AdoConfig, "orgUrl" | "project" | "team"> = {
 	authMethod: "auto",
 	safetyLevel: "confirm",
 	defaultWorkItemType: "User Story",
@@ -146,6 +149,9 @@ export function resolveConfig(cwd: string = process.cwd()): AdoConfig {
 	const resolvedOrgUrl = orgUrl!.replace(/\/+$/, ""); // trim trailing slashes
 	const resolvedProject = project!;
 
+	// Team — optional, env var first then settings
+	const team = process.env.ADO_TEAM?.trim() || settings.team?.trim() || undefined;
+
 	// Optional fields — env vars first, then settings, then defaults
 	const authMethod =
 		validateAuthMethod(process.env.ADO_AUTH_METHOD) ??
@@ -175,6 +181,7 @@ export function resolveConfig(cwd: string = process.cwd()): AdoConfig {
 	return {
 		orgUrl: resolvedOrgUrl,
 		project: resolvedProject,
+		team,
 		authMethod,
 		safetyLevel,
 		defaultWorkItemType,

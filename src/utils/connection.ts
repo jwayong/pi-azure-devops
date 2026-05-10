@@ -40,6 +40,28 @@ export async function getWorkItemTrackingApi(
 }
 
 /**
+ * Get the Work API client — boards, backlogs, iterations, capacity.
+ */
+export async function getWorkApi(
+	config: AdoConfig,
+	signal?: AbortSignal,
+) {
+	const connection = await getConnection(config, signal);
+	return connection.getWorkApi();
+}
+
+/**
+ * Get the Core API client — projects, teams.
+ */
+export async function getCoreApi(
+	config: AdoConfig,
+	signal?: AbortSignal,
+) {
+	const connection = await getConnection(config, signal);
+	return connection.getCoreApi();
+}
+
+/**
  * Clear cached connections (useful after auth failure retry).
  */
 export function clearConnectionCache(): void {
