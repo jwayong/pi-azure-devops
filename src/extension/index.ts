@@ -12,6 +12,12 @@ import { createWorkItemTool } from "../tools/create-work-item.js";
 import { updateWorkItemTool } from "../tools/update-work-item.js";
 import { addWorkItemCommentTool } from "../tools/add-work-item-comment.js";
 import { manageWorkItemLinksTool } from "../tools/manage-work-item-links.js";
+import { listTeamsTool } from "../tools/list-teams.js";
+import { listBoardsTool } from "../tools/list-boards.js";
+import { getBoardTool } from "../tools/get-board.js";
+import { listIterationsTool } from "../tools/list-iterations.js";
+import { getIterationWorkItemsTool } from "../tools/get-iteration-work-items.js";
+import { getCapacityTool } from "../tools/get-capacity.js";
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 
 /** All tools to register */
@@ -26,6 +32,13 @@ const tools = [
 	updateWorkItemTool,
 	addWorkItemCommentTool,
 	manageWorkItemLinksTool,
+	// Phase 5: Boards & Backlogs
+	listTeamsTool,
+	listBoardsTool,
+	getBoardTool,
+	listIterationsTool,
+	getIterationWorkItemsTool,
+	getCapacityTool,
 ];
 
 // Type alias for tool execute signature parameters
