@@ -14,6 +14,11 @@ import {
 	formatWorkItemTypeList,
 	formatComments,
 	formatRevisions,
+	formatTeamList,
+	formatBoardList,
+	formatBoard,
+	formatIterationList,
+	formatCapacity,
 } from "../utils/formatting.js";
 import { textResult, errorResult, type ToolResult } from "../tools/shared.js";
 
@@ -69,6 +74,80 @@ interface RevisionsFixture {
 	}>>;
 }
 
+interface TeamsFixture {
+	teams: Array<{
+		id: string;
+		name: string;
+		description?: string;
+		url?: string;
+	}>;
+}
+
+interface BoardsFixture {
+	boards: Record<string, Array<{
+		id: string;
+		name: string;
+		url?: string;
+	}>>;
+}
+
+interface BoardDetailFixture {
+	boardDetails: Record<string, {
+		id?: string;
+		name?: string;
+		url?: string;
+		canEdit?: boolean;
+		revision?: number;
+		columns?: Array<{
+			id?: string;
+			name?: string;
+			columnType?: number;
+			itemLimit?: number | null;
+			stateMappings?: Record<string, string>;
+		}>;
+		rows?: Array<{ id?: string; name?: string }>;
+	}>;
+}
+
+interface IterationsFixture {
+	iterations: Record<string, Array<{
+		id: string;
+		name: string;
+		path?: string;
+		attributes?: {
+			startDate?: string;
+			finishDate?: string;
+			timeFrame?: string;
+		};
+		url?: string;
+	}>>;
+}
+
+interface IterationWorkItemsFixture {
+	iterationWorkItems: Record<string, {
+		workItemRelations?: Array<{
+			rel?: string;
+			source?: { id?: number } | null;
+			target?: { id?: number };
+		}>;
+	}>;
+}
+
+interface CapacityFixture {
+	capacities: Record<string, {
+		teamMembers?: Array<{
+			teamMember?: {
+				displayName?: string;
+				uniqueName?: string;
+			};
+			activities?: Array<{ name?: string; capacityPerDay?: number }>;
+			daysOff?: Array<{ start?: string; end?: string }>;
+		}>;
+		totalCapacityPerDay?: number;
+		totalDaysOff?: number;
+	}>;
+}
+
 // Lazy-load fixtures
 let _workItems: FixtureData | undefined;
 let _types: TypesFixture | undefined;
@@ -89,6 +168,32 @@ function getComments(): CommentsFixture {
 
 function getRevisions(): RevisionsFixture {
 	return (_revisions ??= loadFixture<RevisionsFixture>("revisions.json"));
+}
+
+let _teams: TeamsFixture | undefined;
+let _boards: BoardsFixture | undefined;
+let _boardDetail: BoardDetailFixture | undefined;
+let _iterations: IterationsFixture | undefined;
+let _iterationWorkItems: IterationWorkItemsFixture | undefined;
+let _capacity: CapacityFixture | undefined;
+
+function getTeams(): TeamsFixture {
+	return (_teams ??= loadFixture<TeamsFixture>("teams.json"));
+}
+function getBoards(): BoardsFixture {
+	return (_boards ??= loadFixture<BoardsFixture>("boards.json"));
+}
+function getBoardDetail(): BoardDetailFixture {
+	return (_boardDetail ??= loadFixture<BoardDetailFixture>("board-detail.json"));
+}
+function getIterations(): IterationsFixture {
+	return (_iterations ??= loadFixture<IterationsFixture>("iterations.json"));
+}
+function getIterationWorkItems(): IterationWorkItemsFixture {
+	return (_iterationWorkItems ??= loadFixture<IterationWorkItemsFixture>("iteration-work-items.json"));
+}
+function getCapacity(): CapacityFixture {
+	return (_capacity ??= loadFixture<CapacityFixture>("capacity.json"));
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +403,178 @@ export function mockManageWorkItemLinks(
 }
 
 /**
+ * Mock: list teams in the project.
+ */
+export function mockListTeams(): ToolResult {
+	const data = getTeams();
+	return textResult(
+		`Teams (mock mode):\n\n${formatTeamList(data.teams as any)}`,
+		{ count: data.teams.length, mock: true },
+	);
+}
+
+/**
+ * Mock: list boards for a team.
+ */
+export function mockListBoards(team: string): ToolResult {
+	const data = getBoards();
+	const boards = data.boards[team];
+	if (!boards) {
+		return errorResult(`No boards found for team "${team}" (mock mode)`);
+	}
+	return textResult(
+		`Boards for ${team} (mock mode):\n\n${formatBoardList(boards as any)}`,
+		{ team, count: boards.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get full board detail.
+ */
+export function mockGetBoard(team: string, boardId: string): ToolResult {
+	const data = getBoardDetail();
+	const key = `${team}:${boardId}`;
+	const board = data.boardDetails[key];
+	if (!board) {
+		return errorResult(`Board "${boardId}" not found for team "${team}" (mock mode)`);
+	}
+	return textResult(
+		`Board detail (mock mode):\n\n${formatBoard(board as any)}`,
+		{ team, boardId, mock: true },
+	);
+}
+
+/**
+ * Mock: list iterations for a team.
+ */
+export function mockListIterations(team: string, timeframe?: string): ToolResult {
+	const data = getIterations();
+	const iterations = data.iterations[team];
+	if (!iterations) {
+		return errorResult(`No iterations found for team "${team}" (mock mode)`);
+	}
+
+	let filtered = iterations;
+	if (timeframe) {
+		const tf = timeframe.toLowerCase();
+		filtered = iterations.filter(
+			(it) => it.attributes?.timeFrame?.toLowerCase() === tf,
+		);
+	}
+
+	return textResult(
+		`Iterations for ${team} (mock mode):\n\n${formatIterationList(filtered as any)}`,
+		{ team, count: filtered.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get work items in an iteration.
+ */
+export function mockGetIterationWorkItems(team: string, iterationId: string): ToolResult {
+	const data = getIterationWorkItems();
+	const key = `${team}:${iterationId}`;
+	const items = data.iterationWorkItems[key];
+	if (!items || !items.workItemRelations || items.workItemRelations.length === 0) {
+		return textResult(
+			`No work items in iteration ${iterationId} for ${team} (mock mode)`,
+			{ team, iterationId, count: 0, mock: true },
+		);
+	}
+
+	// Collect target IDs and format
+	const workItemData = getWorkItems();
+	const ids = items.workItemRelations
+		.filter((r) => r.target?.id)
+		.map((r) => r.target!.id!);
+	const matched = workItemData.workItems.filter((wi) => ids.includes(wi.id));
+
+	const lines = [`Work items in iteration ${iterationId} for ${team} (mock mode):`, ""];
+	if (matched.length > 0) {
+		lines.push(formatWorkItemList(matched as any));
+	} else {
+		lines.push(`Work item IDs: ${ids.join(", ")}`);
+	}
+
+	return textResult(lines.join("\n"), { team, iterationId, count: ids.length, mock: true });
+}
+
+/**
+ * Mock: get sprint capacity.
+ */
+export function mockGetCapacity(team: string, iterationId: string): ToolResult {
+	const data = getCapacity();
+	const key = `${team}:${iterationId}`;
+	const cap = data.capacities[key];
+	if (!cap) {
+		return errorResult(`No capacity data for ${team} / ${iterationId} (mock mode)`);
+	}
+	return textResult(
+		`Sprint capacity (mock mode):\n\n${formatCapacity(cap as any)}`,
+		{ team, iterationId, mock: true },
+	);
+}
+
+/**
+ * Mock: set board columns — returns confirmation.
+ */
+export function mockSetBoardColumns(
+	team: string,
+	boardId: string,
+	columns: Array<{ name: string; itemLimit?: number }>,
+): ToolResult {
+	const colNames = columns.map((c) => c.name).join(" → ");
+	return textResult(
+		[
+			`✅ Updated columns on board "${boardId}" for ${team} (mock mode)`,
+			"",
+			`Columns: ${colNames}`,
+			"",
+			"⚠️ This is mock data — no board was actually modified.",
+		].join("\n"),
+		{ team, boardId, mock: true },
+	);
+}
+
+/**
+ * Mock: set iteration — add or remove from team.
+ */
+export function mockSetIteration(
+	team: string,
+	iterationId: string,
+	operation: "add" | "remove",
+): ToolResult {
+	const verb = operation === "add" ? "Added" : "Removed";
+	const prep = operation === "add" ? "to" : "from";
+	return textResult(
+		[
+			`✅ ${verb} iteration ${iterationId} ${prep} ${team} (mock mode)`,
+			"",
+			"⚠️ This is mock data — no iteration was actually modified.",
+		].join("\n"),
+		{ team, iterationId, operation, mock: true },
+	);
+}
+
+/**
+ * Mock: set capacity — returns confirmation.
+ */
+export function mockSetCapacity(
+	team: string,
+	iterationId: string,
+	capacities: Array<{ teamMemberId: string }>,
+): ToolResult {
+	return textResult(
+		[
+			`✅ Set capacity for ${capacities.length} member(s) in ${team} / ${iterationId} (mock mode)`,
+			"",
+			"⚠️ This is mock data — no capacity was actually modified.",
+		].join("\n"),
+		{ team, iterationId, memberCount: capacities.length, mock: true },
+	);
+}
+
+/**
  * Clear cached fixtures (useful for testing).
  */
 export function clearFixtureCache(): void {
@@ -305,4 +582,10 @@ export function clearFixtureCache(): void {
 	_types = undefined;
 	_comments = undefined;
 	_revisions = undefined;
+	_teams = undefined;
+	_boards = undefined;
+	_boardDetail = undefined;
+	_iterations = undefined;
+	_iterationWorkItems = undefined;
+	_capacity = undefined;
 }
