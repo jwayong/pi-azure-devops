@@ -22,6 +22,7 @@ import { setBoardColumnsTool } from "../tools/set-board-columns.js";
 import { setIterationTool } from "../tools/set-iteration.js";
 import { setCapacityTool } from "../tools/set-capacity.js";
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
+import { registerIterationAutocomplete } from "../autocomplete/iteration-autocomplete.js";
 
 /** All tools to register */
 const tools = [
@@ -67,6 +68,12 @@ export default function (pi: ExtensionAPI) {
 
 		// Register #id autocomplete if config allows
 		registerAutocomplete(
+			(wrapper) => ctx.ui.addAutocompleteProvider(wrapper),
+			config,
+		);
+
+		// Register @sprint iteration autocomplete (requires team)
+		registerIterationAutocomplete(
 			(wrapper) => ctx.ui.addAutocompleteProvider(wrapper),
 			config,
 		);
