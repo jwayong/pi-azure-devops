@@ -18,6 +18,9 @@ import { getBoardTool } from "../tools/get-board.js";
 import { listIterationsTool } from "../tools/list-iterations.js";
 import { getIterationWorkItemsTool } from "../tools/get-iteration-work-items.js";
 import { getCapacityTool } from "../tools/get-capacity.js";
+import { setBoardColumnsTool } from "../tools/set-board-columns.js";
+import { setIterationTool } from "../tools/set-iteration.js";
+import { setCapacityTool } from "../tools/set-capacity.js";
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 
 /** All tools to register */
@@ -39,6 +42,10 @@ const tools = [
 	listIterationsTool,
 	getIterationWorkItemsTool,
 	getCapacityTool,
+	// Phase 5: Boards & Backlogs (write)
+	setBoardColumnsTool,
+	setIterationTool,
+	setCapacityTool,
 ];
 
 // Type alias for tool execute signature parameters
