@@ -2,7 +2,7 @@
 
 > A Pi package providing rich Azure DevOps integration, starting with work items and designed to grow into a comprehensive ADO integration (pipelines, repos, PRs, test plans, etc.).
 
-## Status: Phase 5 Complete (v0.2.0)
+## Status: Phase 3 In Progress (v0.3.0)
 
 ## Package
 
@@ -153,11 +153,211 @@ All tools support a `mock` option (parameter or env var `ADO_MOCK=1`) that retur
 
 ### Phase 3: Repos & Pull Requests
 
-- `ado_list_repos`, `ado_get_repo`, `ado_list_pull_requests`
-- `ado_create_pull_request`, `ado_update_pull_request`
-- `ado_get_pull_request_comments`, `ado_add_pull_request_comment`
-- `ado_set_vote` (approve/reject)
-- `ado_list_policies`, `ado_get_policy_evaluations`
+#### Goal
+
+Add tools for Git repositories and pull requests. Users can browse repos, list/search PRs, review PR details, manage comments, vote, and view commits. The phase also covers branch listing and basic file content retrieval.
+
+#### API Client
+
+Uses `IGitApi` from `azure-devops-node-api/GitApi.js`. Access via `connection.getGitApi()`. All methods take `project?: string` as the last parameter.
+
+No new config fields needed — repos and PRs use the existing `ADO_ORG_URL` and `ADO_PROJECT`. `repositoryId` is always passed as a parameter (not configured).
+
+#### Tools
+
+| # | Tool | Description | Mutation | API Method |
+|---|------|-------------|----------|------------|
+| 1 | `ado_list_repos` | List Git repositories in the project | No | `getRepositories(project)` |
+| 2 | `ado_get_repo` | Get a single repository by ID or name | No | `getRepository(repositoryId, project)` |
+| 3 | `ado_list_branches` | List branches in a repository | No | `getBranches(repositoryId, project)` |
+| 4 | `ado_list_pull_requests` | List/search pull requests by status, creator, reviewer | No | `getPullRequests(repositoryId, searchCriteria, project)` or `getPullRequestsByProject(project, searchCriteria)` |
+| 5 | `ado_get_pull_request` | Get PR detail — title, description, status, reviewers, merge status | No | `getPullRequest(repositoryId, pullRequestId, project)` or `getPullRequestById(pullRequestId, project)` |
+| 6 | `ado_get_pull_request_threads` | Get comment threads on a PR | No | `getThreads(repositoryId, pullRequestId, project)` |
+| 7 | `ado_get_pull_request_commits` | Get commits in a PR | No | `getPullRequestCommits(repositoryId, pullRequestId, project)` |
+| 8 | `ado_create_pull_request` | Create a new PR (source/target branch, title, description) | Yes | `createPullRequest(gitPullRequestToCreate, repositoryId, project)` |
+| 9 | `ado_update_pull_request` | Update PR fields (title, description, status: abandon/complete/reactivate) | Yes | `updatePullRequest(gitPullRequestToUpdate, repositoryId, pullRequestId, project)` |
+| 10 | `ado_add_pull_request_comment` | Add a comment thread to a PR | Yes | `createThread(commentThread, repositoryId, pullRequestId, project)` |
+| 11 | `ado_set_pull_request_vote` | Vote on a PR (approve, approve-with-suggestions, wait, reject) | Yes | `createPullRequestReviewer(reviewer, repositoryId, pullRequestId, reviewerId, project)` |
+| 12 | `ado_list_policies` | List branch/PR policies for the project | No | `getPolicyConfigurations(project, scope)` |
+| 13 | `ado_get_policy_evaluations` | Get policy evaluation status for a PR | No | `getPolicyEvaluations(project, artifactId)` |
+
+#### Design Decisions
+
+- **`repositoryId` is always a parameter, never configured.** Users often work across multiple repos. The tool requires `repositoryId` (GUID or name).
+- **`getPullRequestsByProject` over `getPullRequests`.** When users search for PRs across repos, `getPullRequestsByProject` doesn't require a repo ID. For repo-scoped queries, pass `searchCriteria.repositoryId`.
+- **`getPullRequestById` as fallback.** When user says "PR #42", use `getPullRequestById(42, project)` — works without repo ID.
+- **Vote values:** 10 (approved), 5 (approved with suggestions), 0 (reset/no vote), -5 (waiting for author), -10 (rejected). Exposed as string enum: `"approve" | "approve-with-suggestions" | "waiting-for-author" | "reject" | "reset"`.
+- **PR status enum:** `"active" | "abandoned" | "completed" | "all"`. Mapped to `GitInterfaces.PullRequestStatus`.
+- **Comment threads, not individual comments.** ADO PR comments are organized into threads. `ado_add_pull_request_comment` creates a new thread with one comment. `ado_get_pull_request_threads` returns all threads with their comments.
+- **Policy API uses `IPolicyApi`** from `azure-devops-node-api/PolicyApi.js`. Access via `connection.getPolicyApi()`. Policy evaluations use `artifactId` format: `vstfs:///CodeReview/CodeReviewId/{projectId}/{pullRequestId}`.
+- **`ado_list_pull_requests` supports both repo-scoped and project-wide queries.** When `repositoryId` is provided, uses `getPullRequests`. When omitted, uses `getPullRequestsByProject`.
+- **Branch listing returns name, commit, isBaseVersion, ahead/behind counts.** Useful for PR creation workflows.
+
+#### Mock Fixtures
+
+| File | Contents |
+|------|----------|
+| `repos.json` | 3 repos (webapp, api, shared-libs) with IDs, names, default branches, sizes |
+| `branches.json` | 4 branches per repo (main, develop, feature/*, hotfix/*) |
+| `pull-requests.json` | 5 PRs across repos — various statuses (active, completed, abandoned), reviewers, votes |
+| `pr-detail.json` | Full PR detail with threads, commits, reviewers for PR #1 |
+| `pr-threads.json` | 3 comment threads with comments |
+| `pr-commits.json` | 3-5 commits per PR |
+| `policies.json` | 3 policy configurations (minimum reviewers, build validation, required reviewers) |
+| `policy-evaluations.json` | Policy evaluation records (approved, pending, rejected) |
+
+#### Mock Handlers
+
+| Handler | Returns |
+|---------|----------|
+| `mockListRepos()` | All repos |
+| `mockGetRepo(repoId)` | Single repo or error |
+| `mockListBranches(repoId)` | Branches for a repo |
+| `mockListPullRequests(searchCriteria)` | Filtered PRs |
+| `mockGetPullRequest(prId)` | Full PR detail |
+| `mockGetPullRequestThreads(repoId, prId)` | Comment threads |
+| `mockGetPullRequestCommits(repoId, prId)` | Commits |
+| `mockCreatePullRequest(repoId, data)` | New PR |
+| `mockUpdatePullRequest(repoId, prId, data)` | Updated PR |
+| `mockAddPullRequestComment(repoId, prId, text)` | New thread |
+| `mockSetPullRequestVote(repoId, prId, vote)` | Updated reviewer |
+| `mockListPolicies(scope?)` | Policy configurations |
+| `mockGetPolicyEvaluations(artifactId)` | Policy evaluations |
+
+#### Formatting Functions
+
+| Function | Output |
+|----------|--------|
+| `formatRepo(repo)` | Repo name, ID, default branch, size, URL |
+| `formatRepoList(repos)` | Table: name, default branch, size |
+| `formatBranch(branch)` | Branch name, commit (short), ahead/behind |
+| `formatBranchList(branches)` | Compact list of branches |
+| `formatPullRequest(pr)` | PR ID, title, status, author, source→target, reviewers with votes |
+| `formatPullRequestList(prs)` | Table: ID, title, status, author, creation date |
+| `formatPullRequestThread(thread)` | Thread status, comments with author/date |
+| `formatCommit(commit)` | Commit SHA (short), author, message (first line), date |
+| `formatCommitList(commits)` | Compact list of commits |
+| `formatPolicy(policy)` | Policy type, scope, settings summary |
+| `formatPolicyEvaluation(evaluation)` | Policy name, status (approved/pending/rejected) |
+
+#### Safety Model Additions
+
+New mutation tools registered in `MUTATION_TOOLS`:
+- `ado_create_pull_request`
+- `ado_update_pull_request`
+- `ado_add_pull_request_comment`
+- `ado_set_pull_request_vote`
+
+New `formatMutationSummary` cases:
+- `ado_create_pull_request`: `"Create PR: '{title}' ({source} → {target})"`
+- `ado_update_pull_request`: `"Update PR #{id}: {fields changed}"`
+- `ado_add_pull_request_comment`: `"Comment on PR #{id}: {text truncated}"`
+- `ado_set_pull_request_vote`: `"Vote on PR #{id}: {vote}"`
+
+#### Connection Extensions
+
+Add `getGitApi()` and `getPolicyApi()` to `src/utils/connection.ts`:
+
+```typescript
+export async function getGitApi(config: AdoConfig, signal?: AbortSignal) {
+  const connection = await getConnection(config, signal);
+  return connection.getGitApi();
+}
+
+export async function getPolicyApi(config: AdoConfig, signal?: AbortSignal) {
+  const connection = await getConnection(config, signal);
+  return connection.getPolicyApi();
+}
+```
+
+#### Skill Updates
+
+Add to `skills/ado-workitems/SKILL.md`:
+- PR status reference (active, abandoned, completed)
+- Vote values reference
+- PR workflow guidance (list → review → comment → vote)
+- Branch naming patterns
+- Policy evaluation interpretation
+- Common PR search criteria examples
+
+#### New Prompt Templates
+
+| Template | Description |
+|----------|------------|
+| `ado-pr-review` | Review a PR — read threads, check policies, summarize changes |
+| `ado-pr-creator` | Create a PR — list branches, suggest title/description from commits |
+
+#### Autocomplete Extensions
+
+Add `!<id>` PR ID autocomplete:
+- Preload active PRs for the project on session_start
+- `!42` triggers fuzzy-filter on PR ID and title
+- Shows PR status badge in suggestion
+
+Or: skip if not adding clear value over text. Evaluate after core tools.
+
+#### Implementation Order
+
+| Issue | Title | Depends On | Est. Tests |
+|-------|-------|------------|------------|
+| #36 | Connection + config extensions | — | 5 |
+| #37 | Mock fixtures + handlers | #36 | 25 |
+| #38 | Read tools (7) | #36, #37 | 20 |
+| #39 | Write tools (4) | #36, #37 | 15 |
+| #40 | Formatting functions | #37 | 15 |
+| #41 | Safety model extensions | #39 | 5 |
+| #42 | Skill + prompt templates | #38, #39 | — |
+| #43 | Comprehensive test suite | #36–#41 | 30 |
+| #44 | README/docs + publish v0.3.0 | #42, #43 | — |
+
+**Total estimated tests: ~115 new (368 → ~483)**
+
+#### API Method Signatures
+
+```typescript
+// Repos
+getRepositories(project?: string, includeLinks?: boolean, includeAllUrls?: boolean, includeHidden?: boolean): Promise<GitRepository[]>
+getRepository(repositoryId: string, project?: string): Promise<GitRepository>
+
+// Branches
+getBranches(repositoryId: string, project?: string, baseVersionDescriptor?: GitVersionDescriptor): Promise<GitBranchStats[]>
+
+// Pull Requests
+getPullRequests(repositoryId: string, searchCriteria: GitPullRequestSearchCriteria, project?: string, maxCommentLength?: number, skip?: number, top?: number): Promise<GitPullRequest[]>
+getPullRequestsByProject(project: string, searchCriteria: GitPullRequestSearchCriteria, maxCommentLength?: number, skip?: number, top?: number): Promise<GitPullRequest[]>
+getPullRequest(repositoryId: string, pullRequestId: number, project?: string, ...): Promise<GitPullRequest>
+getPullRequestById(pullRequestId: number, project?: string): Promise<GitPullRequest>
+
+// PR Comments
+getThreads(repositoryId: string, pullRequestId: number, project?: string, ...): Promise<GitPullRequestCommentThread[]>
+createThread(commentThread: GitPullRequestCommentThread, repositoryId: string, pullRequestId: number, project?: string): Promise<GitPullRequestCommentThread>
+
+// PR Commits
+getPullRequestCommits(repositoryId: string, pullRequestId: number, project?: string): Promise<PagedList<GitCommitRef>>
+
+// PR Create/Update
+createPullRequest(gitPullRequestToCreate: GitPullRequest, repositoryId: string, project?: string, supportsIterations?: boolean): Promise<GitPullRequest>
+updatePullRequest(gitPullRequestToUpdate: GitPullRequest, repositoryId: string, pullRequestId: number, project?: string): Promise<GitPullRequest>
+
+// PR Vote
+createPullRequestReviewer(reviewer: IdentityRefWithVote, repositoryId: string, pullRequestId: number, reviewerId: string, project?: string): Promise<IdentityRefWithVote>
+
+// Policies (IPolicyApi)
+getPolicyConfigurations(project: string, scope?: string, policyType?: string): Promise<PagedList<PolicyConfiguration>>
+getPolicyEvaluations(project: string, artifactId: string, includeNotApplicable?: boolean, top?: number, skip?: number): Promise<PolicyEvaluationRecord[]>
+```
+
+#### Type Inference Pattern
+
+Follow Phase 5 convention — infer types from API methods:
+
+```typescript
+type GitRepository = Awaited<ReturnType<IGitApi["getRepository"]>>;
+type GitPullRequest = Awaited<ReturnType<IGitApi["getPullRequestById"]>>;
+type GitBranchStats = Awaited<ReturnType<IGitApi["getBranches"]>>[number];
+type GitPullRequestCommentThread = Awaited<ReturnType<IGitApi["getThreads"]>>[number];
+type GitCommitRef = Awaited<ReturnType<IGitApi["getPullRequestCommits"]>>[number];
+```
 
 ### Phase 4: Test Plans
 
