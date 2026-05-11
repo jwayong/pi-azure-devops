@@ -1,9 +1,9 @@
 ---
 name: ado-workitems
-description: Azure DevOps work item operations. Use when the user asks to create, read, update, query, comment on, or link work items. Covers WIQL queries, work item types, revisions, and safety model guidance.
+description: Azure DevOps work item and board operations. Use when the user asks to create, read, update, query, comment on, or link work items, or when they ask about boards, sprints, iterations, team capacity, or backlog management. Covers WIQL queries, work item types, revisions, boards, sprints, capacity, and safety model guidance.
 ---
 
-# Azure DevOps Work Items
+# Azure DevOps Work Items & Boards
 
 ## Setup
 
@@ -13,6 +13,7 @@ Set these environment variables before use:
 export ADO_ORG_URL="https://dev.azure.com/yourorg"
 export ADO_PROJECT="YourProject"
 export ADO_PAT="your-personal-access-token"
+export ADO_TEAM="Engineering"        # optional — needed for boards/iterations/capacity
 ```
 
 Or configure in `.pi/settings.json`:
@@ -22,6 +23,7 @@ Or configure in `.pi/settings.json`:
   "ado": {
     "orgUrl": "https://dev.azure.com/yourorg",
     "project": "YourProject",
+    "team": "Engineering",
     "authMethod": "pat",
     "safetyLevel": "confirm"
   }
@@ -42,6 +44,12 @@ Run `ado_doctor` first to verify your configuration.
 | `ado_list_work_item_types` | User needs to know valid work item types before creating one |
 | `ado_get_work_item_comments` | User wants to see discussion/comments on a work item |
 | `ado_get_work_item_revisions` | User wants to see change history for a work item |
+| `ado_list_teams` | User needs to discover which teams exist in the project |
+| `ado_list_boards` | User wants to see boards for a team (Stories, Features, Epics) |
+| `ado_get_board` | User wants to inspect board columns, state mappings, and WIP limits |
+| `ado_list_iterations` | User wants to see sprints/iterations for a team, or find the current sprint |
+| `ado_get_iteration_work_items` | User wants to see what work items are in a sprint |
+| `ado_get_capacity` | User wants to see team member capacity and activities for a sprint |
 
 ### Write Tools (gated by safety level)
 
@@ -51,6 +59,21 @@ Run `ado_doctor` first to verify your configuration.
 | `ado_update_work_item` | User wants to change fields on an existing work item |
 | `ado_add_work_item_comment` | User wants to add a comment to a work item |
 | `ado_manage_work_item_links` | User wants to create or remove links between work items |
+| `ado_set_board_columns` | User wants to reconfigure board columns (rename, reorder, change WIP limits) |
+| `ado_set_iteration` | User wants to add or remove a sprint from a team |
+| `ado_set_capacity` | User wants to set team member capacity for a sprint |
+
+## Team Context
+
+Most board, iteration, and capacity tools require a **team name**. The `team` parameter is optional on all these tools — they fall back to the configured default team (`ADO_TEAM` or `ado.team`).
+
+**Workflow:**
+1. If the user mentions a team by name, pass it as the `team` parameter.
+2. If no team is mentioned, use the config default (no `team` param needed).
+3. If no team is configured and none is specified, the tool returns an error — tell the user to set `ADO_TEAM` or specify a team.
+4. Use `ado_list_teams` to discover available teams when unsure.
+
+**Multi-team scenarios:** When working across teams (e.g., comparing sprint health), call tools once per team, passing each team name as the `team` parameter.
 
 ## WIQL Query Reference
 
@@ -106,6 +129,130 @@ SELECT [System.Id] FROM WorkItems
 WHERE [System.ChangedDate] >= @today - 7
 ORDER BY [System.ChangedDate] DESC
 ```
+
+## Sprint/Iteration Reference
+
+### Finding Sprints
+
+Use `ado_list_iterations` to discover sprints. Pass `timeframe: "current"` to get the active sprint:
+
+```
+ado_list_iterations(team: "Engineering", timeframe: "current")
+```
+
+**Timeframe values:** `"current"`, `"past"`, `"future"`
+
+### Iteration Data
+
+Each iteration returns:
+- **id** — GUID (needed for capacity and iteration work item tools)
+- **name** — Sprint name (e.g., "Sprint 3")
+- **path** — Full path (e.g., `Project\Sprint 3`)
+- **attributes.startDate / finishDate** — Sprint date range
+- **attributes.timeFrame** — `"current"`, `"past"`, or `"future"`
+
+### Common Sprint Operations
+
+| Task | Steps |
+|------|-------|
+| Show current sprint items | `ado_list_iterations(timeframe: "current")` → get iteration ID → `ado_get_iteration_work_items(iterationId)` |
+| Check capacity | `ado_get_capacity(iterationId, team)` |
+| Add a sprint to team | `ado_set_iteration(iterationId, operation: "add", team)` |
+| Remove a sprint | `ado_set_iteration(iterationId, operation: "remove", team)` |
+
+### Typical Iteration Patterns
+
+Iterations follow the project's area path structure:
+- `Project\Sprint 1`, `Project\Sprint 2`, ...
+- `Project\2026-Q1\Sprint 1`, `Project\2026-Q2\Sprint 1`, ...
+
+## Board Reference
+
+### Board Types
+
+| Board ID | Backlog Level | Typical Work Item Types |
+|----------|--------------|------------------------|
+| `stories` | Requirements | User Story, Bug, Task |
+| `features` | Features | Feature |
+| `epics` | Epics | Epic |
+
+Teams may have custom boards with different IDs. Use `ado_list_boards(team)` to discover them.
+
+### Column Configuration
+
+Each board has columns with:
+- **name** — Display name (e.g., "New", "Active", "Closed")
+- **columnType** — `Incoming` (first), `InProgress` (middle), `Outgoing` (last)
+- **itemLimit** — WIP limit (null = unlimited)
+- **stateMappings** — Maps work item type → state for this column
+
+Example state mappings for a "Stories" board:
+```
+Column "New":   { "User Story": "New", "Bug": "New", "Task": "To Do" }
+Column "Active": { "User Story": "Active", "Bug": "Active", "Task": "In Progress" }
+Column "Closed": { "User Story": "Closed", "Bug": "Closed", "Task": "Closed" }
+```
+
+### Modifying Board Columns
+
+`ado_set_board_columns` **replaces all columns** — always `ado_get_board` first to see the current config, then modify.
+
+**Workflow:**
+1. `ado_get_board(boardId, team)` — inspect current columns and state mappings
+2. Modify the column definitions as needed
+3. `ado_set_board_columns(boardId, columns, team)` — apply the new set
+
+## Capacity Reference
+
+### Capacity Model
+
+Each team member has:
+- **Activities** — Work categories with hours/day (e.g., Development: 6h/day, Code Review: 1h/day)
+- **Days off** — Date ranges when the member is unavailable
+
+Team totals are computed automatically (sum of all member capacity minus days off).
+
+### Reading Capacity
+
+```
+ado_get_capacity(iterationId, team)
+```
+
+Returns per-member breakdown with activities, days off, and team totals.
+
+### Setting Capacity
+
+`ado_set_capacity` **replaces all capacity** for the sprint — always `ado_get_capacity` first to see current values.
+
+**Workflow:**
+1. `ado_get_capacity(iterationId, team)` — see current values
+2. Build the new capacity array (one entry per team member)
+3. `ado_set_capacity(iterationId, capacities, team)` — apply
+
+Each capacity entry:
+```json
+{
+  "teamMemberId": "user@contoso.com",
+  "activities": [
+    { "name": "Development", "capacityPerDay": 6 },
+    { "name": "Code Review", "capacityPerDay": 1 }
+  ],
+  "daysOff": [
+    { "start": "2026-04-25T00:00:00Z", "end": "2026-04-25T00:00:00Z" }
+  ]
+}
+```
+
+### Common Activities
+
+| Activity | Typical For |
+|----------|------------|
+| Development | Developers — writing code |
+| Testing | QA — manual and automated testing |
+| Code Review | Senior developers — reviewing PRs |
+| Design | Designers — UX/UI work |
+| Infrastructure | DevOps — CI/CD, cloud |
+| Documentation | Technical writers — docs |
 
 ## Common Field Reference
 
@@ -177,6 +324,10 @@ Or pass `{ "mock": true }` to any tool's parameters.
 4. **Set `System.Tags`** when creating to improve discoverability.
 5. **Use `ado_get_work_item_revisions`** to understand the history before updating.
 6. **Link parent/child items** using `ado_manage_work_item_links` to maintain hierarchy.
+7. **Use `ado_list_iterations(timeframe: "current")`** instead of hardcoded sprint names — sprints change.
+8. **Always `ado_get_board` before `ado_set_board_columns`** — the set operation replaces all columns.
+9. **Always `ado_get_capacity` before `ado_set_capacity`** — the set operation replaces all capacity data.
+10. **List boards before modifying** — use `ado_list_boards(team)` to find the correct board ID.
 
 ## Error Handling
 
@@ -186,4 +337,5 @@ Or pass `{ "mock": true }` to any tool's parameters.
 | "Project not found" | Verify `ADO_PROJECT` matches exactly (case-sensitive). |
 | "Invalid work item type" | Use `ado_list_work_item_types` to see valid types. |
 | "Work item not found" | Check the ID. Use `ado_query_work_items` to search. |
+| "No team specified" | Set `ADO_TEAM` env var, `ado.team` in settings, or pass `team` parameter. |
 | "Rate limited" | Wait a moment and retry. Reduce query result counts. |

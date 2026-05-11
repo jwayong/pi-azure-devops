@@ -81,6 +81,9 @@ Type `/` in the prompt editor to see available templates:
 | `/ado-status-report [group-by]` | Generate a status report grouped by state, assignee, iteration, or type |
 | `/ado-create-batch <items>` | Batch-create work items from a structured list |
 | `/ado-review-history <id>` | Review revision history with a chronological narrative |
+| `/ado-sprint-health [team]` | Sprint health check — status, capacity, burndown |
+| `/ado-plan-sprint <sprint\|next>` | Sprint planning — propose work assignment based on capacity |
+| `/ado-board-review <board> [team]` | Board review — analyze setup and suggest improvements |
 
 Examples:
 
@@ -89,6 +92,9 @@ Examples:
 /ado-status-report assignee
 /ado-create-batch - Bug: Fix crash [priority:1]  - Task: Update docs
 /ado-review-history 1234
+/ado-sprint-health Engineering
+/ado-plan-sprint next
+/ado-board-review Stories Engineering
 ```
 
 ## Authentication
@@ -122,6 +128,12 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 | `ado_list_work_item_types` | List valid work item types for the project |
 | `ado_get_work_item_comments` | Get comments/discussion on a work item |
 | `ado_get_work_item_revisions` | Get revision/change history for a work item |
+| `ado_list_teams` | List teams in the project |
+| `ado_list_boards` | List boards for a team |
+| `ado_get_board` | Get board detail with columns and state mappings |
+| `ado_list_iterations` | List sprints/iterations for a team |
+| `ado_get_iteration_work_items` | Get work items in a sprint |
+| `ado_get_capacity` | Get sprint capacity per member with totals |
 
 ### Write Tools (gated by safety level)
 
@@ -131,6 +143,9 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 | `ado_update_work_item` | Update fields on an existing work item |
 | `ado_add_work_item_comment` | Add a comment to a work item |
 | `ado_manage_work_item_links` | Add or remove relation links between work items |
+| `ado_set_board_columns` | Reconfigure board columns |
+| `ado_set_iteration` | Add or remove iteration to/from team |
+| `ado_set_capacity` | Set sprint capacity for team members |
 
 ## Prompt Templates
 
@@ -188,6 +203,7 @@ Or pass `{ mock: true }` to any tool parameter.
 | `ADO_AUTH_METHOD` | `pat`, `azure-cli`, or `auto` (default: `auto`) |
 | `ADO_SAFETY_LEVEL` | `open`, `confirm`, or `readonly` (default: `confirm`) |
 | `ADO_MOCK` | Set to `1` to enable mock mode |
+| `ADO_TEAM` | Default team name (for boards/iterations/capacity) |
 | `ADO_MAX_QUERY_RESULTS` | Max query results (default: `100`) |
 
 ### Settings (`ado` key in `.pi/settings.json`)
@@ -196,6 +212,7 @@ Or pass `{ mock: true }` to any tool parameter.
 |-----|------|---------|-------------|
 | `orgUrl` | string | — | Organization URL |
 | `project` | string | — | Default project |
+| `team` | string | — | Default team name |
 | `authMethod` | string | `"auto"` | `pat`, `azure-cli`, or `auto` |
 | `safetyLevel` | string | `"confirm"` | `open`, `confirm`, or `readonly` |
 | `defaultWorkItemType` | string | `"User Story"` | Default type for create |
