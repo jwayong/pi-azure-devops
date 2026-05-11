@@ -16,23 +16,32 @@ pi -e npm:@jwayong/pi-azure-devops
 
 ## Features
 
-### Phase 1: Work Items (current)
-
-- **10 tools** — get, query, create, update, comment, link, revise, list types, doctor
+- **19 tools** — work items, boards, sprints, iterations, capacity, and more
 - **Dual auth** — PAT (`ADO_PAT`) or Azure CLI (`az`) with auto-detect
 - **Dual config** — environment variables or `.pi/settings.json`
 - **Safety model** — `open` / `confirm` / `readonly` (default: `confirm`)
 - **Mock mode** — work offline with fixture data (`ADO_MOCK=1`)
 - **Autocomplete** — `#1234` work item ID completion
-- **Skill** — `ado-workitems` with WIQL reference and operating rules
-- **Prompt templates** — `/ado-triage`, `/ado-status-report`, `/ado-create-batch`, `/ado-review-history`
+- **Skill** — `ado-workitems` with WIQL, board, sprint, and capacity reference
+- **7 prompt templates** — triage, status reports, batch create, review history, sprint health, sprint planning, board review
+- **338 tests** — comprehensive coverage, all offline
+
+### What's Included
+
+| Area | Tools | Read | Write |
+|------|-------|------|-------|
+| Work Items | CRUD, comments, links, revisions, WIQL queries | 6 | 4 |
+| Teams | List teams | 1 | — |
+| Boards | List boards, get/set board columns | 2 | 1 |
+| Sprints | List iterations, get/set sprint assignments | 2 | 1 |
+| Capacity | Get/set team member capacity | 1 | 1 |
+| Config | Doctor (health check) | 1 | — |
 
 ### Coming Later
 
 - Phase 2: Pipelines (builds & releases)
 - Phase 3: Repos & Pull Requests
 - Phase 4: Test Plans
-- Phase 5: Boards & Backlogs
 
 ## Quick Start
 
@@ -149,7 +158,7 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 
 ## Prompt Templates
 
-The package includes 4 prompt templates for common ADO workflows. They're automatically available after installing the package.
+The package includes 7 prompt templates for common ADO workflows. They're automatically available after installing the package.
 
 | Command | Description | Arguments |
 |---------|-------------|----------|
@@ -157,6 +166,9 @@ The package includes 4 prompt templates for common ADO workflows. They're automa
 | `/ado-status-report` | Generate a status report | `state`, `assignee`, `iteration`, or `type` |
 | `/ado-create-batch` | Batch-create work items | Bullet list of items |
 | `/ado-review-history` | Review revision history | Work item ID |
+| `/ado-sprint-health` | Sprint health check — burndown, capacity, at-risk items | Optional team name |
+| `/ado-plan-sprint` | Sprint planning with capacity-based assignment | Sprint name or `next` |
+| `/ado-board-review` | Board configuration analysis and suggestions | Board ID, optional team |
 
 ### Usage
 

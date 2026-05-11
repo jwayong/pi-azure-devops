@@ -2,7 +2,7 @@
 
 > A Pi package providing rich Azure DevOps integration, starting with work items and designed to grow into a comprehensive ADO integration (pipelines, repos, PRs, test plans, etc.).
 
-## Status: Planning
+## Status: Phase 5 Complete (v0.2.0)
 
 ## Package
 
@@ -164,10 +164,13 @@ All tools support a `mock` option (parameter or env var `ADO_MOCK=1`) that retur
 - `ado_list_test_plans`, `ado_list_test_suites`, `ado_list_test_cases`
 - `ado_create_test_run`, `ado_update_test_results`
 
-### Phase 5: Boards & Backlogs
+### Phase 5: Boards & Backlogs ✅ (v0.2.0)
 
-- Board column moves, backlog management
-- Sprint/capacity queries
+- 9 tools: list teams, list/get boards, set board columns, list iterations, get/set iteration work items, get/set capacity
+- Team configuration: `ADO_TEAM` env var, `ado.team` setting, per-tool override
+- 3 prompt templates: sprint health, sprint planning, board review
+- 338 tests total
+- Full mock mode coverage
 
 ---
 
