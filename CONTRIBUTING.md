@@ -43,8 +43,9 @@ prompts/            # Pi prompt templates
 2. Add mock handler in `src/mocks/mock-handler.ts` if applicable.
 3. Register the tool in `src/extension/index.ts`.
 4. If it's a mutation tool, add it to `MUTATION_TOOLS` in `src/tools/shared.ts` and add a `formatMutationSummary` case in `src/safety/index.ts`.
-5. Write tests in `test/tools/`.
-6. Update the skill (`skills/ado-workitems/SKILL.md`) and README tools table.
+5. If the tool needs team context, use `resolveTeamContext(config, params.team)` from `src/tools/shared.ts` and return an error if undefined.
+6. Write tests in `test/tools/` — use mock mode for all tests.
+7. Update the skill (`skills/ado-workitems/SKILL.md`) and README tools table.
 
 ## Testing
 
