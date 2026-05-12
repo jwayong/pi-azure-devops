@@ -21,6 +21,15 @@ import { getCapacityTool } from "../tools/get-capacity.js";
 import { setBoardColumnsTool } from "../tools/set-board-columns.js";
 import { setIterationTool } from "../tools/set-iteration.js";
 import { setCapacityTool } from "../tools/set-capacity.js";
+import { listReposTool } from "../tools/list-repos.js";
+import { getRepoTool } from "../tools/get-repo.js";
+import { listBranchesTool } from "../tools/list-branches.js";
+import { listPullRequestsTool } from "../tools/list-pull-requests.js";
+import { getPullRequestTool } from "../tools/get-pull-request.js";
+import { getPullRequestThreadsTool } from "../tools/get-pull-request-threads.js";
+import { getPullRequestCommitsTool } from "../tools/get-pull-request-commits.js";
+import { listPoliciesTool } from "../tools/list-policies.js";
+import { getPolicyEvaluationsTool } from "../tools/get-policy-evaluations.js";
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 import { registerIterationAutocomplete } from "../autocomplete/iteration-autocomplete.js";
 
@@ -47,6 +56,16 @@ const tools = [
 	setBoardColumnsTool,
 	setIterationTool,
 	setCapacityTool,
+	// Phase 3: Repos & Pull Requests (read)
+	listReposTool,
+	getRepoTool,
+	listBranchesTool,
+	listPullRequestsTool,
+	getPullRequestTool,
+	getPullRequestThreadsTool,
+	getPullRequestCommitsTool,
+	listPoliciesTool,
+	getPolicyEvaluationsTool,
 ];
 
 // Type alias for tool execute signature parameters
