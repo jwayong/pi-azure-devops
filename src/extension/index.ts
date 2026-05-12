@@ -30,6 +30,10 @@ import { getPullRequestThreadsTool } from "../tools/get-pull-request-threads.js"
 import { getPullRequestCommitsTool } from "../tools/get-pull-request-commits.js";
 import { listPoliciesTool } from "../tools/list-policies.js";
 import { getPolicyEvaluationsTool } from "../tools/get-policy-evaluations.js";
+import { createPullRequestTool } from "../tools/create-pull-request.js";
+import { updatePullRequestTool } from "../tools/update-pull-request.js";
+import { addPullRequestCommentTool } from "../tools/add-pull-request-comment.js";
+import { setPullRequestVoteTool } from "../tools/set-pull-request-vote.js";
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 import { registerIterationAutocomplete } from "../autocomplete/iteration-autocomplete.js";
 
@@ -66,6 +70,11 @@ const tools = [
 	getPullRequestCommitsTool,
 	listPoliciesTool,
 	getPolicyEvaluationsTool,
+	// Phase 3: Repos & Pull Requests (write)
+	createPullRequestTool,
+	updatePullRequestTool,
+	addPullRequestCommentTool,
+	setPullRequestVoteTool,
 ];
 
 // Type alias for tool execute signature parameters
