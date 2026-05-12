@@ -80,6 +80,11 @@ export const MUTATION_TOOLS = new Set([
 	"ado_set_board_columns",
 	"ado_set_iteration",
 	"ado_set_capacity",
+	// Phase 3: Repos & Pull Requests
+	"ado_create_pull_request",
+	"ado_update_pull_request",
+	"ado_add_pull_request_comment",
+	"ado_set_pull_request_vote",
 ]);
 
 export function isMutationTool(toolName: string): boolean {

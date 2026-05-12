@@ -101,6 +101,31 @@ export function formatMutationSummary(toolName: string, params: MutationParams):
 			const count = capacities?.length ?? 0;
 			return `Set capacity for ${count} team member(s) in iteration ${iterationId}`;
 		}
+		case "ado_create_pull_request": {
+			const title = String(params.title ?? "(untitled)");
+			const source = String(params.sourceRefName ?? "?").replace("refs/heads/", "");
+			const target = String(params.targetRefName ?? "?").replace("refs/heads/", "");
+			return `Create PR: "${title}" (${source} → ${target})`;
+		}
+		case "ado_update_pull_request": {
+			const prId = params.pullRequestId ?? "?";
+			const fields: string[] = [];
+			if (params.title) fields.push("title");
+			if (params.description) fields.push("description");
+			if (params.status) fields.push(`status → ${params.status}`);
+			return `Update PR #${prId}: ${fields.join(", ") || "no changes"}`;
+		}
+		case "ado_add_pull_request_comment": {
+			const prId = params.pullRequestId ?? "?";
+			const text = String(params.content ?? "").slice(0, 80);
+			const ellipsis = String(params.content ?? "").length > 80 ? "..." : "";
+			return `Comment on PR #${prId}: "${text}${ellipsis}"`;
+		}
+		case "ado_set_pull_request_vote": {
+			const prId = params.pullRequestId ?? "?";
+			const vote = String(params.vote ?? "?");
+			return `Vote on PR #${prId}: ${vote}`;
+		}
 		default:
 			return `${toolName}: ${JSON.stringify(params).slice(0, 100)}`;
 	}
