@@ -358,3 +358,291 @@ export function formatCapacity(capacity: CapacityLike): string {
 
 	return lines.join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Repo formatting
+// ---------------------------------------------------------------------------
+
+interface RepoLike {
+	id?: string;
+	name?: string;
+	url?: string;
+	defaultBranch?: string;
+	size?: number;
+	project?: { name?: string };
+}
+
+export function formatRepo(repo: RepoLike): string {
+	const lines: string[] = [];
+	lines.push(`**${repo.name ?? "Unknown"}** (id: ${repo.id ?? "?"})`);
+	if (repo.defaultBranch) lines.push(`- **Default branch:** ${repo.defaultBranch.replace("refs/heads/", "")}`);
+	if (repo.size != null) lines.push(`- **Size:** ${formatBytes(repo.size)}`);
+	if (repo.project?.name) lines.push(`- **Project:** ${repo.project.name}`);
+	if (repo.url) lines.push(`- **URL:** ${repo.url}`);
+	return lines.join("\n");
+}
+
+export function formatRepoList(repos: RepoLike[]): string {
+	if (repos.length === 0) return "No repositories found.";
+	return repos.map(formatRepo).join("\n");
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+	if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+// ---------------------------------------------------------------------------
+// Branch formatting
+// ---------------------------------------------------------------------------
+
+interface BranchLike {
+	name?: string;
+	commit?: {
+		commitId?: string;
+		author?: { name?: string; date?: string };
+		comment?: string;
+	};
+	aheadCount?: number;
+	behindCount?: number;
+	isBaseVersion?: boolean;
+}
+
+export function formatBranch(branch: BranchLike): string {
+	const sha = branch.commit?.commitId?.slice(0, 7) ?? "?";
+	const message = branch.commit?.comment?.split("\n")[0] ?? "";
+	const ahead = branch.aheadCount ?? 0;
+	const behind = branch.behindCount ?? 0;
+	const badge = branch.isBaseVersion ? " (base)" : "";
+	const trackStr = ahead > 0 || behind > 0 ? ` ↑${ahead} ↓${behind}` : "";
+
+	const lines: string[] = [];
+	lines.push(`**${branch.name ?? "?"}**${badge} \`${sha}\`${trackStr}`);
+	if (message) lines.push(`  ${message}`);
+	return lines.join("\n");
+}
+
+export function formatBranchList(branches: BranchLike[]): string {
+	if (branches.length === 0) return "No branches found.";
+	return branches.map(formatBranch).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Pull Request formatting
+// ---------------------------------------------------------------------------
+
+const PR_STATUS_LABELS: Record<string, string> = {
+	active: "🟢 Active",
+	completed: "✅ Completed",
+	abandoned: "⚪ Abandoned",
+};
+
+const VOTE_LABELS: Record<number, string> = {
+	10: "Approved",
+	5: "Approved with suggestions",
+	0: "No vote",
+	[-5]: "Waiting for author",
+	[-10]: "Rejected",
+};
+
+interface PullRequestLike {
+	pullRequestId?: number;
+	title?: string;
+	description?: string;
+	status?: string;
+	sourceRefName?: string;
+	targetRefName?: string;
+	repositoryId?: string;
+	createdBy?: { displayName?: string; uniqueName?: string };
+	creationDate?: string;
+	reviewers?: Array<{ displayName?: string; vote?: number }>;
+	url?: string;
+}
+
+export function formatPullRequest(pr: PullRequestLike): string {
+	const lines: string[] = [];
+	const statusLabel = PR_STATUS_LABELS[pr.status ?? ""] ?? pr.status ?? "Unknown";
+
+	lines.push(`# PR #${pr.pullRequestId ?? "?"}: ${pr.title ?? "(untitled)"}`);
+	lines.push(`- **Status:** ${statusLabel}`);
+	lines.push(`- **Branch:** ${shortRef(pr.sourceRefName)} → ${shortRef(pr.targetRefName)}`);
+	lines.push(`- **Author:** ${pr.createdBy?.displayName ?? "Unknown"}`);
+
+	if (pr.creationDate) {
+		const date = new Date(pr.creationDate).toISOString().slice(0, 10);
+		lines.push(`- **Created:** ${date}`);
+	}
+
+	const reviewers = pr.reviewers ?? [];
+	if (reviewers.length > 0) {
+		lines.push(`- **Reviewers:** ${reviewers.map((r) => `${r.displayName ?? "?"} (${VOTE_LABELS[r.vote ?? 0] ?? "?"})`).join(", ")}`);
+	}
+
+	if (pr.description) {
+		lines.push("");
+		lines.push("## Description");
+		lines.push(pr.description);
+	}
+
+	if (pr.url) {
+		lines.push("");
+		lines.push(`**URL:** ${pr.url}`);
+	}
+
+	return lines.join("\n");
+}
+
+export function formatPullRequestList(prs: PullRequestLike[]): string {
+	if (prs.length === 0) return "No pull requests found.";
+
+	const lines: string[] = [];
+	for (const pr of prs) {
+		const statusLabel = PR_STATUS_LABELS[pr.status ?? ""] ?? pr.status ?? "?";
+		const source = shortRef(pr.sourceRefName);
+		const target = shortRef(pr.targetRefName);
+		const author = pr.createdBy?.displayName ?? "?";
+		const date = pr.creationDate ? new Date(pr.creationDate).toISOString().slice(0, 10) : "?";
+		lines.push(`#${pr.pullRequestId ?? "?"} ${statusLabel} — ${pr.title ?? "?"} (${source}→${target}) by ${author} [${date}]`);
+	}
+	return lines.join("\n");
+}
+
+function shortRef(refName?: string): string {
+	if (!refName) return "?";
+	return refName.replace("refs/heads/", "");
+}
+
+// ---------------------------------------------------------------------------
+// PR Thread formatting
+// ---------------------------------------------------------------------------
+
+const THREAD_STATUS_LABELS: Record<number, string> = {
+	0: "Unknown",
+	1: "Active",
+	2: "Fixed",
+	3: "Won't Fix",
+	4: "Closed",
+	5: "By Design",
+	6: "Pending",
+};
+
+interface PrThreadLike {
+	id?: number;
+	status?: number;
+	comments?: Array<{
+		id?: number;
+		author?: { displayName?: string };
+		publishedDate?: string;
+		content?: string;
+	}>;
+}
+
+export function formatPullRequestThread(thread: PrThreadLike): string {
+	const statusLabel = THREAD_STATUS_LABELS[thread.status ?? 0] ?? "Unknown";
+	const lines: string[] = [];
+
+	lines.push(`### Thread #${thread.id ?? "?"} [${statusLabel}]`);
+
+	const comments = thread.comments ?? [];
+	for (const c of comments) {
+		const author = c.author?.displayName ?? "Unknown";
+		const date = c.publishedDate ? new Date(c.publishedDate).toISOString().slice(0, 10) : "";
+		lines.push(`**${author}** (${date}):`);
+		lines.push(c.content ?? "(empty)");
+		lines.push("");
+	}
+
+	return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Commit formatting
+// ---------------------------------------------------------------------------
+
+interface CommitLike {
+	commitId?: string;
+	author?: { name?: string; date?: string };
+	comment?: string;
+	url?: string;
+}
+
+export function formatCommit(commit: CommitLike): string {
+	const sha = commit.commitId?.slice(0, 7) ?? "?";
+	const author = commit.author?.name ?? "Unknown";
+	const date = commit.author?.date ? new Date(commit.author.date).toISOString().slice(0, 10) : "";
+	const message = commit.comment?.split("\n")[0] ?? "";
+
+	return `\`${sha}\` ${message} — ${author} [${date}]`;
+}
+
+export function formatCommitList(commits: CommitLike[]): string {
+	if (commits.length === 0) return "No commits found.";
+	return commits.map(formatCommit).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Policy formatting
+// ---------------------------------------------------------------------------
+
+interface PolicyLike {
+	id?: number;
+	type?: { displayName?: string };
+	isBlocking?: boolean;
+	scope?: Array<{ repositoryId?: string | null; refName?: string }>;
+	settings?: Record<string, unknown>;
+}
+
+export function formatPolicy(policy: PolicyLike): string {
+	const lines: string[] = [];
+	const typeName = policy.type?.displayName ?? "Unknown";
+	const blocking = policy.isBlocking ? "🔒 Blocking" : "⚠️ Non-blocking";
+
+	lines.push(`**${typeName}** (id: ${policy.id ?? "?"}) ${blocking}`);
+
+	const scope = policy.scope ?? [];
+	if (scope.length > 0) {
+		const scopeStr = scope
+			.map((s) => `${s.refName?.replace("refs/heads/", "") ?? "?"}`)
+			.join(", ");
+		lines.push(`  Scope: ${scopeStr}`);
+	}
+
+	if (policy.settings) {
+		const settings = Object.entries(policy.settings)
+			.map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+			.join(", ");
+		lines.push(`  Settings: ${settings}`);
+	}
+
+	return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Policy Evaluation formatting
+// ---------------------------------------------------------------------------
+
+const EVAL_STATUS_ICONS: Record<string, string> = {
+	approved: "✅ Approved",
+	running: "⏳ Running",
+	rejected: "❌ Rejected",
+	queued: "📋 Queued",
+	notApplicable: "➖ Not applicable",
+};
+
+interface PolicyEvaluationLike {
+	evaluationId?: string;
+	policyDisplayName?: string;
+	status?: string;
+	startedDate?: string;
+	completedDate?: string;
+}
+
+export function formatPolicyEvaluation(evaluation: PolicyEvaluationLike): string {
+	const statusIcon = EVAL_STATUS_ICONS[evaluation.status ?? ""] ?? evaluation.status ?? "?";
+	const started = evaluation.startedDate ? new Date(evaluation.startedDate).toISOString().slice(0, 10) : "?";
+	const completed = evaluation.completedDate ? new Date(evaluation.completedDate).toISOString().slice(0, 10) : "—";
+
+	return `**${evaluation.policyDisplayName ?? "?"}**: ${statusIcon} (${started}${completed !== "—" ? ` → ${completed}` : ""})`;
+}

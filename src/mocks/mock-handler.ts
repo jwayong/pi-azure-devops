@@ -19,6 +19,17 @@ import {
 	formatBoard,
 	formatIterationList,
 	formatCapacity,
+	formatRepo,
+	formatRepoList,
+	formatBranch,
+	formatBranchList,
+	formatPullRequest,
+	formatPullRequestList,
+	formatPullRequestThread,
+	formatCommit,
+	formatCommitList,
+	formatPolicy,
+	formatPolicyEvaluation,
 } from "../utils/formatting.js";
 import { textResult, errorResult, type ToolResult } from "../tools/shared.js";
 
@@ -574,6 +585,398 @@ export function mockSetCapacity(
 	);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 3: Repos & PRs fixture types
+// ---------------------------------------------------------------------------
+
+interface ReposFixture {
+	repositories: Array<{
+		id?: string;
+		name?: string;
+		url?: string;
+		defaultBranch?: string;
+		size?: number;
+		project?: { id?: string; name?: string; url?: string };
+	}>;
+}
+
+interface BranchesFixture {
+	branches: Record<string, Array<{
+		name?: string;
+		commit?: {
+			commitId?: string;
+			author?: { name?: string; date?: string };
+			comment?: string;
+		};
+		aheadCount?: number;
+		behindCount?: number;
+		isBaseVersion?: boolean;
+	}>>;
+}
+
+interface PullRequestsFixture {
+	pullRequests: Array<{
+		pullRequestId?: number;
+		title?: string;
+		description?: string;
+		status?: string;
+		sourceRefName?: string;
+		targetRefName?: string;
+		repositoryId?: string;
+		createdBy?: { id?: string; displayName?: string; uniqueName?: string };
+		creationDate?: string;
+		reviewers?: Array<{ id?: string; displayName?: string; vote?: number }>;
+		mergeStatus?: string;
+		url?: string;
+	}>;
+}
+
+interface PrThreadsFixture {
+	prThreads: Record<string, Array<{
+		id?: number;
+		status?: number;
+		comments?: Array<{
+			id?: number;
+			author?: { displayName?: string; uniqueName?: string };
+			publishedDate?: string;
+			content?: string;
+		}>;
+	}>>;
+}
+
+interface PrCommitsFixture {
+	prCommits: Record<string, Array<{
+		commitId?: string;
+		author?: { name?: string; date?: string };
+		comment?: string;
+		url?: string;
+	}>>;
+}
+
+interface PoliciesFixture {
+	policies: Array<{
+		id?: number;
+		type?: { id?: string; displayName?: string; url?: string };
+		scope?: Array<{ repositoryId?: string | null; refName?: string; matchKind?: string }>;
+		settings?: Record<string, unknown>;
+		isBlocking?: boolean;
+		isDeleted?: boolean;
+	}>;
+}
+
+interface PolicyEvaluationsFixture {
+	evaluations: Array<{
+		evaluationId?: string;
+		policyId?: number;
+		policyDisplayName?: string;
+		artifactId?: string;
+		status?: string;
+		startedDate?: string;
+		completedDate?: string;
+		context?: Record<string, unknown>;
+	}>;
+}
+
+let _repos: ReposFixture | undefined;
+let _branches: BranchesFixture | undefined;
+let _pullRequests: PullRequestsFixture | undefined;
+let _prThreads: PrThreadsFixture | undefined;
+let _prCommits: PrCommitsFixture | undefined;
+let _policies: PoliciesFixture | undefined;
+let _policyEvals: PolicyEvaluationsFixture | undefined;
+
+function getRepos(): ReposFixture {
+	return (_repos ??= loadFixture<ReposFixture>("repos.json"));
+}
+function getBranches(): BranchesFixture {
+	return (_branches ??= loadFixture<BranchesFixture>("branches.json"));
+}
+function getPullRequests(): PullRequestsFixture {
+	return (_pullRequests ??= loadFixture<PullRequestsFixture>("pull-requests.json"));
+}
+function getPrThreads(): PrThreadsFixture {
+	return (_prThreads ??= loadFixture<PrThreadsFixture>("pr-threads.json"));
+}
+function getPrCommits(): PrCommitsFixture {
+	return (_prCommits ??= loadFixture<PrCommitsFixture>("pr-commits.json"));
+}
+function getPolicies(): PoliciesFixture {
+	return (_policies ??= loadFixture<PoliciesFixture>("policies.json"));
+}
+function getPolicyEvals(): PolicyEvaluationsFixture {
+	return (_policyEvals ??= loadFixture<PolicyEvaluationsFixture>("policy-evaluations.json"));
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: Repo & PR mock handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * Mock: list repositories.
+ */
+export function mockListRepos(): ToolResult {
+	const data = getRepos();
+	return textResult(
+		`Repositories (mock mode):\n\n${formatRepoList(data.repositories as any)}`,
+		{ count: data.repositories.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get a single repository.
+ */
+export function mockGetRepo(repoId: string): ToolResult {
+	const data = getRepos();
+	const repo = data.repositories.find((r) => r.id === repoId || r.name === repoId);
+	if (!repo) {
+		return errorResult(`Repository "${repoId}" not found (mock mode)`);
+	}
+	return textResult(
+		`Repository detail (mock mode):\n\n${formatRepo(repo as any)}`,
+		{ repoId: repo.id, mock: true },
+	);
+}
+
+/**
+ * Mock: list branches for a repository.
+ */
+export function mockListBranches(repoId: string): ToolResult {
+	const data = getBranches();
+	const branches = data.branches[repoId];
+	if (!branches) {
+		return errorResult(`No branches found for repository "${repoId}" (mock mode)`);
+	}
+	return textResult(
+		`Branches for ${repoId} (mock mode):\n\n${formatBranchList(branches as any)}`,
+		{ repoId, count: branches.length, mock: true },
+	);
+}
+
+/**
+ * Mock: list pull requests with optional filters.
+ */
+export function mockListPullRequests(filters?: {
+	status?: string;
+	creator?: string;
+	repositoryId?: string;
+}): ToolResult {
+	const data = getPullRequests();
+	let prs = [...data.pullRequests];
+
+	if (filters?.status) {
+		prs = prs.filter((pr) => pr.status === filters.status);
+	}
+	if (filters?.creator) {
+		prs = prs.filter((pr) =>
+			pr.createdBy?.displayName?.toLowerCase().includes(filters.creator!.toLowerCase())
+			|| pr.createdBy?.uniqueName?.toLowerCase().includes(filters.creator!.toLowerCase()),
+		);
+	}
+	if (filters?.repositoryId) {
+		prs = prs.filter((pr) => pr.repositoryId === filters.repositoryId);
+	}
+
+	return textResult(
+		`Pull requests (mock mode):\n\n${formatPullRequestList(prs as any)}`,
+		{ count: prs.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get a single pull request by ID.
+ */
+export function mockGetPullRequest(prId: number): ToolResult {
+	const data = getPullRequests();
+	const pr = data.pullRequests.find((p) => p.pullRequestId === prId);
+	if (!pr) {
+		return errorResult(`Pull request #${prId} not found (mock mode)`);
+	}
+	return textResult(
+		`Pull request detail (mock mode):\n\n${formatPullRequest(pr as any)}`,
+		{ pullRequestId: pr.pullRequestId, mock: true },
+	);
+}
+
+/**
+ * Mock: get comment threads for a PR.
+ */
+export function mockGetPullRequestThreads(repoId: string, prId: number): ToolResult {
+	const data = getPrThreads();
+	const key = `${repoId}:${prId}`;
+	const threads = data.prThreads[key];
+	if (!threads || threads.length === 0) {
+		return textResult(
+			`No comment threads on PR #${prId} (mock mode)`,
+			{ repoId, pullRequestId: prId, count: 0, mock: true },
+		);
+	}
+	const formatted = threads.map((t) => formatPullRequestThread(t as any)).join("\n");
+	return textResult(
+		`Comment threads on PR #${prId} (mock mode):\n\n${formatted}`,
+		{ repoId, pullRequestId: prId, count: threads.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get commits for a PR.
+ */
+export function mockGetPullRequestCommits(repoId: string, prId: number): ToolResult {
+	const data = getPrCommits();
+	const commits = data.prCommits[String(prId)];
+	if (!commits || commits.length === 0) {
+		return textResult(
+			`No commits on PR #${prId} (mock mode)`,
+			{ repoId, pullRequestId: prId, count: 0, mock: true },
+		);
+	}
+	return textResult(
+		`Commits on PR #${prId} (mock mode):\n\n${formatCommitList(commits as any)}`,
+		{ repoId, pullRequestId: prId, count: commits.length, mock: true },
+	);
+}
+
+/**
+ * Mock: create a pull request.
+ */
+export function mockCreatePullRequest(
+	repoId: string,
+	title: string,
+	sourceRefName: string,
+	targetRefName: string,
+	description?: string,
+): ToolResult {
+	const newId = 100 + Math.floor(Math.random() * 50);
+	return textResult(
+		[
+			`✅ Created pull request #${newId} (mock mode)`,
+			"",
+			`- **Title:** ${title}`,
+			`- **Branch:** ${sourceRefName.replace("refs/heads/", "")} → ${targetRefName.replace("refs/heads/", "")}`,
+			`- **Repository:** ${repoId}`,
+			`- **Status:** Active`,
+			description ? `\n${description}` : "",
+			"",
+			"⚠️ This is mock data — no pull request was actually created.",
+		].join("\n"),
+		{ pullRequestId: newId, repoId, title, mock: true },
+	);
+}
+
+/**
+ * Mock: update a pull request.
+ */
+export function mockUpdatePullRequest(
+	repoId: string,
+	prId: number,
+	updates: { title?: string; description?: string; status?: string },
+): ToolResult {
+	const data = getPullRequests();
+	const pr = data.pullRequests.find((p) => p.pullRequestId === prId);
+	if (!pr) {
+		return errorResult(`Pull request #${prId} not found (mock mode)`);
+	}
+	const changed: string[] = [];
+	if (updates.title) changed.push(`title: ${updates.title}`);
+	if (updates.description) changed.push("description");
+	if (updates.status) changed.push(`status: ${updates.status}`);
+
+	return textResult(
+		[
+			`✅ Updated pull request #${prId} (mock mode)`,
+			"",
+			`Changed: ${changed.join(", ")}`,
+			"",
+			"⚠️ This is mock data — no pull request was actually updated.",
+		].join("\n"),
+		{ pullRequestId: prId, repoId, changes: changed, mock: true },
+	);
+}
+
+/**
+ * Mock: add a comment to a PR (creates a new thread).
+ */
+export function mockAddPullRequestComment(
+	repoId: string,
+	prId: number,
+	text: string,
+): ToolResult {
+	return textResult(
+		[
+			`✅ Added comment to PR #${prId} (mock mode)`,
+			"",
+			`> ${text}`,
+			"",
+			"⚠️ This is mock data — no comment was actually added.",
+		].join("\n"),
+		{ pullRequestId: prId, repoId, mock: true },
+	);
+}
+
+/**
+ * Mock: set vote on a PR.
+ */
+export function mockSetPullRequestVote(
+	repoId: string,
+	prId: number,
+	vote: number,
+): ToolResult {
+	const VOTE_LABELS: Record<number, string> = {
+		10: "Approved",
+		5: "Approved with suggestions",
+		0: "No vote",
+		[-5]: "Waiting for author",
+		[-10]: "Rejected",
+	};
+	const label = VOTE_LABELS[vote] ?? `Unknown (${vote})`;
+	return textResult(
+		[
+			`✅ Set vote on PR #${prId}: ${label} (mock mode)`,
+			"",
+			"⚠️ This is mock data — no vote was actually recorded.",
+		].join("\n"),
+		{ pullRequestId: prId, repoId, vote, voteLabel: label, mock: true },
+	);
+}
+
+/**
+ * Mock: list policy configurations.
+ */
+export function mockListPolicies(scope?: string): ToolResult {
+	const data = getPolicies();
+	let policies = data.policies.filter((p) => !p.isDeleted);
+	if (scope) {
+		policies = policies.filter((p) =>
+			p.scope?.some((s) => s.refName?.includes(scope)),
+		);
+	}
+	const formatted = policies.map((p) => formatPolicy(p as any)).join("\n");
+	return textResult(
+		`Policy configurations (mock mode):\n\n${formatted}`,
+		{ count: policies.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get policy evaluations.
+ */
+export function mockGetPolicyEvaluations(artifactId: string): ToolResult {
+	const data = getPolicyEvals();
+	const evals = data.evaluations.filter((e) => e.artifactId === artifactId);
+	if (evals.length === 0) {
+		// Return all evaluations if artifactId doesn't match (convenient for testing)
+		const allFormatted = data.evaluations.map((e) => formatPolicyEvaluation(e as any)).join("\n");
+		return textResult(
+			`Policy evaluations (mock mode):\n\n${allFormatted}`,
+			{ count: data.evaluations.length, mock: true },
+		);
+	}
+	const formatted = evals.map((e) => formatPolicyEvaluation(e as any)).join("\n");
+	return textResult(
+		`Policy evaluations (mock mode):\n\n${formatted}`,
+		{ count: evals.length, mock: true },
+	);
+}
+
 /**
  * Clear cached fixtures (useful for testing).
  */
@@ -588,4 +991,11 @@ export function clearFixtureCache(): void {
 	_iterations = undefined;
 	_iterationWorkItems = undefined;
 	_capacity = undefined;
+	_repos = undefined;
+	_branches = undefined;
+	_pullRequests = undefined;
+	_prThreads = undefined;
+	_prCommits = undefined;
+	_policies = undefined;
+	_policyEvals = undefined;
 }
