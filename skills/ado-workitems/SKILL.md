@@ -1,9 +1,9 @@
 ---
 name: ado-workitems
-description: Azure DevOps work item and board operations. Use when the user asks to create, read, update, query, comment on, or link work items, or when they ask about boards, sprints, iterations, team capacity, or backlog management. Covers WIQL queries, work item types, revisions, boards, sprints, capacity, and safety model guidance.
+description: Azure DevOps work item, board, repo, and pull request operations. Use when the user asks to create, read, update, query, comment on, or link work items, or when they ask about boards, sprints, iterations, team capacity, backlog management, repositories, branches, pull requests, code reviews, or policies. Covers WIQL queries, work item types, revisions, boards, sprints, capacity, Git repos, PR workflows, voting, and policy evaluations.
 ---
 
-# Azure DevOps Work Items & Boards
+# Azure DevOps Work Items, Boards, & Pull Requests
 
 ## Setup
 
@@ -50,6 +50,15 @@ Run `ado_doctor` first to verify your configuration.
 | `ado_list_iterations` | User wants to see sprints/iterations for a team, or find the current sprint |
 | `ado_get_iteration_work_items` | User wants to see what work items are in a sprint |
 | `ado_get_capacity` | User wants to see team member capacity and activities for a sprint |
+| `ado_list_repos` | User wants to see repositories in the project |
+| `ado_get_repo` | User wants details of a specific repository |
+| `ado_list_branches` | User wants to see branches in a repository |
+| `ado_list_pull_requests` | User wants to search or list pull requests (active, completed, abandoned) |
+| `ado_get_pull_request` | User wants full details of a specific PR (description, reviewers, votes) |
+| `ado_get_pull_request_threads` | User wants to see comments/discussion on a PR |
+| `ado_get_pull_request_commits` | User wants to see commits in a PR |
+| `ado_list_policies` | User wants to see branch/PR policies configured for the project |
+| `ado_get_policy_evaluations` | User wants to check if PR policies are passing (approved/pending/rejected) |
 
 ### Write Tools (gated by safety level)
 
@@ -62,6 +71,10 @@ Run `ado_doctor` first to verify your configuration.
 | `ado_set_board_columns` | User wants to reconfigure board columns (rename, reorder, change WIP limits) |
 | `ado_set_iteration` | User wants to add or remove a sprint from a team |
 | `ado_set_capacity` | User wants to set team member capacity for a sprint |
+| `ado_create_pull_request` | User wants to create a new pull request |
+| `ado_update_pull_request` | User wants to change PR title, description, or status (abandon/complete) |
+| `ado_add_pull_request_comment` | User wants to add a comment on a PR |
+| `ado_set_pull_request_vote` | User wants to approve, reject, or vote on a PR |
 
 ## Team Context
 
@@ -328,6 +341,145 @@ Or pass `{ "mock": true }` to any tool's parameters.
 8. **Always `ado_get_board` before `ado_set_board_columns`** — the set operation replaces all columns.
 9. **Always `ado_get_capacity` before `ado_set_capacity`** — the set operation replaces all capacity data.
 10. **List boards before modifying** — use `ado_list_boards(team)` to find the correct board ID.
+11. **Use `ado_list_repos` first** when working with PRs — you'll need the repository ID for most PR operations.
+12. **Check `ado_get_pull_request_threads` before commenting** — review existing discussion to avoid duplicates.
+13. **Check `ado_get_policy_evaluations` before approving** — verify all policies are passing.
+14. **Use full ref names** (`refs/heads/feature/login`) when specifying source/target branches for PRs.
+15. **Use `ado_list_pull_requests(status: "active")`** to find open PRs — don't guess PR IDs.
+
+## Repository Reference
+
+### Identifying Repositories
+
+Most repo/PR tools accept `repositoryId` which can be either:
+- **Repository name** — e.g., `"webapp"`, `"api-service"` (human-friendly)
+- **Repository GUID** — e.g., `"repo-webapp"` (stable across renames)
+
+**Workflow:** Use `ado_list_repos` first to discover available repos, then use the name or ID for branch and PR operations.
+
+### Branch Name Formats
+
+The ADO API uses full ref names internally: `refs/heads/main`. Short names (`main`) are displayed in formatted output.
+
+When passing `sourceRefName` or `targetRefName` to tools, always use the full ref format:
+```
+refs/heads/feature/login
+refs/heads/hotfix/auth-fix
+refs/heads/release/v2.0
+```
+
+### Common Branch Patterns
+
+| Pattern | Purpose |
+|---------|----------|
+| `main` | Default branch (production) |
+| `develop` | Integration branch |
+| `feature/*` | New feature development |
+| `hotfix/*` | Urgent production fixes |
+| `release/*` | Release preparation |
+| `bugfix/*` | Bug fixes (non-urgent) |
+
+### Ahead/Behind Counts
+
+Branches show `↑N ↓M` tracking info:
+- `↑N` = N commits ahead of base
+- `↓M` = M commits behind base
+- `(base)` = this is the branch others track against
+
+## Pull Request Reference
+
+### PR Status Values
+
+| Status | Description |
+|--------|------------|
+| `active` | Open and under review |
+| `abandoned` | Closed without merging |
+| `completed` | Successfully merged |
+
+### PR Lifecycle
+
+```
+ado_create_pull_request → ado_get_pull_request_threads → review code →
+ado_add_pull_request_comment → ado_set_pull_request_vote → (auto-complete or manual merge)
+```
+
+**Typical workflow:**
+1. `ado_list_branches(repoId)` — see available branches
+2. `ado_create_pull_request(repoId, source, target, title)` — create PR
+3. `ado_get_pull_request_threads(repoId, prId)` — check existing discussion
+4. `ado_add_pull_request_comment(repoId, prId, content)` — add feedback
+5. `ado_set_pull_request_vote(repoId, prId, vote)` — approve or reject
+6. `ado_get_policy_evaluations(prId)` — check if all policies pass
+
+### Vote Values
+
+| Vote String | Numeric | Meaning |
+|-------------|---------|----------|
+| `approve` | 10 | PR looks good, ready to merge |
+| `approve-with-suggestions` | 5 | Approve, but consider minor changes |
+| `waiting-for-author` | -5 | Changes needed before approval |
+| `reject` | -10 | Should not merge |
+| `reset` | 0 | Remove previous vote |
+
+### PR Comment Threads
+
+PR comments are organized into **threads**, each with a status:
+
+| Status | Meaning |
+|--------|----------|
+| `active` (1) | Open for discussion |
+| `fixed` (2) | Issue resolved |
+| `wontfix` (3) | Won't be fixed |
+| `closed` (4) | Thread closed |
+| `pending` (6) | Awaiting response |
+
+When adding a comment, you can set `threadStatus` to control the thread state.
+
+### Draft PRs
+
+Create a draft PR with `isDraft: true` to signal work-in-progress. Draft PRs cannot be merged until marked ready.
+
+### Common PR Search Patterns
+
+```
+// All active PRs in the project
+ado_list_pull_requests(status: "active")
+
+// PRs created by a specific person
+ado_list_pull_requests(creator: "alice@contoso.com", status: "active")
+
+// PRs in a specific repo
+ado_list_pull_requests(repositoryId: "webapp", status: "active")
+
+// PRs targeting main
+ado_list_pull_requests(targetRefName: "refs/heads/main", status: "active")
+
+// Recently completed PRs
+ado_list_pull_requests(status: "completed", top: 10)
+```
+
+## Policy Reference
+
+### Common Policy Types
+
+| Policy | Purpose |
+|--------|----------|
+| Minimum reviewers | Requires N approvals before merge |
+| Build validation | CI pipeline must pass |
+| Required reviewer | Specific team/person must review |
+| Work item linking | PR must have linked work items |
+| Comment requirements | All comments must be resolved |
+
+### Policy Evaluation Status
+
+| Status | Meaning |
+|--------|----------|
+| ✅ Approved | Policy satisfied |
+| ⏳ Running | Evaluation in progress |
+| ❌ Rejected | Policy not satisfied (blocking merge) |
+| ➖ Not applicable | Policy doesn't apply to this PR |
+
+**Workflow:** Check `ado_get_policy_evaluations(prId)` before approving/voting to see if any policies are blocking.
 
 ## Error Handling
 
@@ -338,4 +490,6 @@ Or pass `{ "mock": true }` to any tool's parameters.
 | "Invalid work item type" | Use `ado_list_work_item_types` to see valid types. |
 | "Work item not found" | Check the ID. Use `ado_query_work_items` to search. |
 | "No team specified" | Set `ADO_TEAM` env var, `ado.team` in settings, or pass `team` parameter. |
+| "Repository not found" | Use `ado_list_repos` to find the correct repository ID or name. |
+| "PR not found" | Use `ado_list_pull_requests` to find the correct PR ID. |
 | "Rate limited" | Wait a moment and retry. Reduce query result counts. |
