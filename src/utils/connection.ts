@@ -62,6 +62,28 @@ export async function getCoreApi(
 }
 
 /**
+ * Get the Git API client — repos, branches, pull requests.
+ */
+export async function getGitApi(
+	config: AdoConfig,
+	signal?: AbortSignal,
+) {
+	const connection = await getConnection(config, signal);
+	return connection.getGitApi();
+}
+
+/**
+ * Get the Policy API client — policy configurations and evaluations.
+ */
+export async function getPolicyApi(
+	config: AdoConfig,
+	signal?: AbortSignal,
+) {
+	const connection = await getConnection(config, signal);
+	return connection.getPolicyApi();
+}
+
+/**
  * Clear cached connections (useful after auth failure retry).
  */
 export function clearConnectionCache(): void {
