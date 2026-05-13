@@ -16,15 +16,15 @@ pi -e npm:@jwayong/pi-azure-devops
 
 ## Features
 
-- **19 tools** — work items, boards, sprints, iterations, capacity, and more
+- **32 tools** — work items, boards, sprints, repos, pull requests, and more
 - **Dual auth** — PAT (`ADO_PAT`) or Azure CLI (`az`) with auto-detect
 - **Dual config** — environment variables or `.pi/settings.json`
 - **Safety model** — `open` / `confirm` / `readonly` (default: `confirm`)
 - **Mock mode** — work offline with fixture data (`ADO_MOCK=1`)
 - **Autocomplete** — `#1234` work item ID completion
 - **Skill** — `ado-workitems` with WIQL, board, sprint, and capacity reference
-- **7 prompt templates** — triage, status reports, batch create, review history, sprint health, sprint planning, board review
-- **338 tests** — comprehensive coverage, all offline
+- **9 prompt templates** — triage, status reports, batch create, review history, sprint health, sprint planning, board review, PR review, PR creator
+- **611 tests** — comprehensive coverage, all offline
 
 ### What's Included
 
@@ -35,12 +35,14 @@ pi -e npm:@jwayong/pi-azure-devops
 | Boards | List boards, get/set board columns | 2 | 1 |
 | Sprints | List iterations, get/set sprint assignments | 2 | 1 |
 | Capacity | Get/set team member capacity | 1 | 1 |
+| Repos | List/get repos, list branches | 3 | — |
+| Pull Requests | List/get PRs, threads, commits, create/update, comment, vote | 4 | 4 |
+| Policies | List policies, get evaluations | 2 | — |
 | Config | Doctor (health check) | 1 | — |
 
 ### Coming Later
 
 - Phase 2: Pipelines (builds & releases)
-- Phase 3: Repos & Pull Requests
 - Phase 4: Test Plans
 
 ## Quick Start
@@ -143,6 +145,15 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 | `ado_list_iterations` | List sprints/iterations for a team |
 | `ado_get_iteration_work_items` | Get work items in a sprint |
 | `ado_get_capacity` | Get sprint capacity per member with totals |
+| `ado_list_repos` | List repositories in the project |
+| `ado_get_repo` | Get repository detail by ID or name |
+| `ado_list_branches` | List branches for a repository |
+| `ado_list_pull_requests` | List pull requests with optional filters |
+| `ado_get_pull_request` | Get pull request detail |
+| `ado_get_pull_request_threads` | Get comment threads on a pull request |
+| `ado_get_pull_request_commits` | Get commits in a pull request |
+| `ado_list_policies` | List policy configurations |
+| `ado_get_policy_evaluations` | Get policy evaluation status for a PR |
 
 ### Write Tools (gated by safety level)
 
@@ -155,10 +166,14 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 | `ado_set_board_columns` | Reconfigure board columns |
 | `ado_set_iteration` | Add or remove iteration to/from team |
 | `ado_set_capacity` | Set sprint capacity for team members |
+| `ado_create_pull_request` | Create a new pull request |
+| `ado_update_pull_request` | Update title, description, or status of a PR |
+| `ado_add_pull_request_comment` | Add a comment to a PR thread |
+| `ado_set_pull_request_vote` | Set vote on a PR (approve, reject, etc.) |
 
 ## Prompt Templates
 
-The package includes 7 prompt templates for common ADO workflows. They're automatically available after installing the package.
+The package includes 9 prompt templates for common ADO workflows. They're automatically available after installing the package.
 
 | Command | Description | Arguments |
 |---------|-------------|----------|
@@ -169,6 +184,8 @@ The package includes 7 prompt templates for common ADO workflows. They're automa
 | `/ado-sprint-health` | Sprint health check — burndown, capacity, at-risk items | Optional team name |
 | `/ado-plan-sprint` | Sprint planning with capacity-based assignment | Sprint name or `next` |
 | `/ado-board-review` | Board configuration analysis and suggestions | Board ID, optional team |
+| `/ado-pr-review` | Review a PR — threads, policies, changes summary | PR ID, optional repository ID |
+| `/ado-pr-creator` | Create a PR — suggest title/description from branch context | Repository ID, source branch |
 
 ### Usage
 
@@ -189,6 +206,12 @@ Type `/ado-` in the prompt editor to see autocomplete suggestions. Each template
 
 # Review what happened to work item #1234
 /ado-review-history 1234
+
+# Review pull request #42
+/ado-pr-review 42
+
+# Create a PR from feature branch
+/ado-pr-creator repo-webapp feature/login
 ```
 
 If you installed the package locally (e.g., `pi -e ./`), the templates are loaded from the `prompts/` directory as declared in `package.json`.

@@ -47,6 +47,13 @@ prompts/            # Pi prompt templates
 6. Write tests in `test/tools/` — use mock mode for all tests.
 7. Update the skill (`skills/ado-workitems/SKILL.md`) and README tools table.
 
+### Notes on Tool Patterns
+
+- **Work items**: Use `getWorkItemTrackingApi()` from `src/utils/connection.ts`.
+- **Boards/sprints/capacity**: Use `getWorkApi()` + `getCoreApi()`, resolve team context with `resolveTeamContext(config, params.team)` from `src/tools/shared.ts`.
+- **Repos/PRs**: Use `getGitApi()` from `src/utils/connection.ts`. `repositoryId` is always a parameter (never configured) since users work across repos.
+- **Policies**: Use `getPolicyApi()` from `src/utils/connection.ts`.
+
 ## Testing
 
 We use Node.js built-in test runner (`node:test`):
