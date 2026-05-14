@@ -2,7 +2,7 @@
 
 > A Pi package providing rich Azure DevOps integration, starting with work items and designed to grow into a comprehensive ADO integration (pipelines, repos, PRs, test plans, etc.).
 
-## Status: Phase 3 Complete (v0.3.0)
+## Status: Phase 3 Complete (v0.3.0). Phase 2 planned — #62–#70
 
 ## Package
 
@@ -144,12 +144,47 @@ All tools support a `mock` option (parameter or env var `ADO_MOCK=1`) that retur
 
 ## Future Phases
 
-### Phase 2: Pipelines (Builds & Releases)
+### Phase 2: Pipelines (Builds & Runs)
 
-- `ado_list_pipelines`, `ado_list_builds`, `ado_get_build`, `ado_get_build_logs`
-- `ado_queue_build`, `ado_cancel_build`
-- Build timeline, artifacts, diagnostics
-- May absorb/incorporate patterns from `@rxreyn3/pi-azure-devops`
+#### Goal
+
+Add tools for Azure DevOps YAML pipelines. Users can browse pipelines, view runs (builds), inspect artifacts/logs/timelines, trigger runs, cancel, and retry. Uses both the modern `PipelinesApi` (run-centric) and the classic `BuildApi` (build-centric for timeline/logs).
+
+#### API Clients
+
+- **PipelinesApi** from `azure-devops-node-api/PipelinesApi.js` — modern YAML pipeline operations: list/get pipelines, list/get/run pipelines, artifacts, logs
+- **BuildApi** from `azure-devops-node-api/BuildApi.js` — classic build operations: timeline, update build (cancel/retry)
+
+No new config fields needed — pipelines use the existing `ADO_ORG_URL` and `ADO_PROJECT`.
+
+#### Tools
+
+| # | Tool | Description | Mutation | API Method |
+|---|------|-------------|----------|------------|
+| 1 | `ado_list_pipelines` | List YAML pipelines in the project | No | `PipelinesApi.listPipelines(project)` |
+| 2 | `ado_get_pipeline` | Get pipeline detail by ID | No | `PipelinesApi.getPipeline(project, pipelineId)` |
+| 3 | `ado_list_runs` | List runs (optionally filtered by pipeline, status, result, branch) | No | `PipelinesApi.listRuns(project, pipelineId)` + `BuildApi.getBuilds(...)` |
+| 4 | `ado_get_run` | Get single run detail | No | `PipelinesApi.getRun(project, pipelineId, runId)` |
+| 5 | `ado_get_run_artifacts` | Get artifacts from a run | No | `BuildApi.getArtifacts(project, buildId)` |
+| 6 | `ado_get_run_logs` | Get log entries for a run | No | `BuildApi.getBuildLogs(project, buildId)` |
+| 7 | `ado_get_run_timeline` | Get stages/jobs/tasks timeline | No | `BuildApi.getBuildTimeline(project, buildId)` |
+| 8 | `ado_run_pipeline` | Queue a new pipeline run | Yes | `PipelinesApi.runPipeline(params, project, pipelineId)` |
+| 9 | `ado_cancel_run` | Cancel an in-progress run | Yes | `BuildApi.updateBuild({status: cancelling}, project, buildId)` |
+| 10 | `ado_retry_run` | Retry a failed run | Yes | `BuildApi.updateBuild({}, project, buildId, retry=true)` |
+
+#### Issues
+
+| # | Issue | Depends On |
+|----|-------|------------|
+| #62 | Connection helpers (BuildApi + PipelinesApi) | — |
+| #63 | Mock fixtures + handlers + formatting | #62 |
+| #64 | Read tools (7 pipeline tools) | #62, #63 |
+| #65 | Write tools (3 mutation tools) | #62, #63 |
+| #66 | Safety model extensions | #65 |
+| #67 | SKILL.md updates | #64, #65 |
+| #68 | Prompt templates (pipeline-status, deploy) | #64 |
+| #69 | Comprehensive test suite | #62–#66 |
+| #70 | README/docs + publish v0.4.0 | #67–#69 |
 
 ### Phase 3: Repos & Pull Requests
 
