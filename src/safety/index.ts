@@ -126,6 +126,25 @@ export function formatMutationSummary(toolName: string, params: MutationParams):
 			const vote = String(params.vote ?? "?");
 			return `Vote on PR #${prId}: ${vote}`;
 		}
+		case "ado_run_pipeline": {
+			const pId = params.pipelineId ?? "?";
+			const branch = String(params.branch ?? "(default)");
+			const tParams = params.templateParameters as Record<string, string> | undefined;
+			const paramStr = tParams && Object.keys(tParams).length > 0
+				? ` with params: ${Object.entries(tParams).map(([k, v]) => `${k}=${v}`).join(", ")}`
+				: "";
+			return `Run pipeline #${pId} on branch ${branch}${paramStr}`;
+		}
+		case "ado_cancel_run": {
+			const pId = params.pipelineId ?? "?";
+			const rId = params.runId ?? "?";
+			return `Cancel run #${rId} (pipeline #${pId})`;
+		}
+		case "ado_retry_run": {
+			const pId = params.pipelineId ?? "?";
+			const rId = params.runId ?? "?";
+			return `Retry run #${rId} (pipeline #${pId})`;
+		}
 		default:
 			return `${toolName}: ${JSON.stringify(params).slice(0, 100)}`;
 	}
