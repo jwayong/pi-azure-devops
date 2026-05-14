@@ -30,6 +30,12 @@ import {
 	formatCommitList,
 	formatPolicy,
 	formatPolicyEvaluation,
+	formatPipeline,
+	formatPipelineList,
+	formatRun,
+	formatRunList,
+	formatArtifactList,
+	formatTimeline,
 } from "../utils/formatting.js";
 import { textResult, errorResult, type ToolResult } from "../tools/shared.js";
 
@@ -977,6 +983,329 @@ export function mockGetPolicyEvaluations(artifactId: string): ToolResult {
 	);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 2: Pipelines fixture types
+// ---------------------------------------------------------------------------
+
+interface PipelinesFixture {
+	pipelines: Array<{
+		id?: number;
+		name?: string;
+		folder?: string;
+		revision?: number;
+		configuration?: {
+			type?: string;
+			path?: string;
+			repository?: { id?: string; name?: string; type?: string };
+		};
+		url?: string;
+	}>;
+}
+
+interface RunsFixture {
+	runs: Array<{
+		id?: number;
+		name?: string;
+		pipeline?: { id?: number; name?: string; folder?: string };
+		state?: string;
+		result?: string | null;
+		createdDate?: string;
+		finishedDate?: string | null;
+		resources?: {
+			repositories?: {
+				self?: { refName?: string; version?: string };
+			};
+		};
+		templateParameters?: Record<string, string>;
+		url?: string;
+	}>;
+}
+
+interface RunArtifactsFixture {
+	artifacts: Record<string, Array<{
+		id?: number;
+		name?: string;
+		resource?: {
+			type?: string;
+			data?: string;
+			url?: string;
+		};
+	}>>;
+}
+
+interface RunLogsFixture {
+	logs: Record<string, Array<{
+		id?: number;
+		type?: string;
+		createdOn?: string;
+		lastChangedOn?: string;
+		lineCount?: number;
+		url?: string;
+	}>>;
+}
+
+interface RunTimelineFixture {
+	timelines: Record<string, {
+		records?: Array<{
+			id?: string;
+			parentId?: string | null;
+			type?: string;
+			name?: string;
+			order?: number;
+			state?: string;
+			result?: string;
+			startTime?: string;
+			finishTime?: string;
+			errorCount?: number;
+			warningCount?: number;
+		}>;
+	}>;
+}
+
+let _pipelines: PipelinesFixture | undefined;
+let _runs: RunsFixture | undefined;
+let _runArtifacts: RunArtifactsFixture | undefined;
+let _runLogs: RunLogsFixture | undefined;
+let _runTimelines: RunTimelineFixture | undefined;
+
+function getPipelines(): PipelinesFixture {
+	return (_pipelines ??= loadFixture<PipelinesFixture>("pipelines.json"));
+}
+function getRuns(): RunsFixture {
+	return (_runs ??= loadFixture<RunsFixture>("runs.json"));
+}
+function getRunArtifacts(): RunArtifactsFixture {
+	return (_runArtifacts ??= loadFixture<RunArtifactsFixture>("run-artifacts.json"));
+}
+function getRunLogs(): RunLogsFixture {
+	return (_runLogs ??= loadFixture<RunLogsFixture>("run-logs.json"));
+}
+function getRunTimelines(): RunTimelineFixture {
+	return (_runTimelines ??= loadFixture<RunTimelineFixture>("run-timeline.json"));
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: Pipeline mock handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * Mock: list all pipelines.
+ */
+export function mockListPipelines(): ToolResult {
+	const data = getPipelines();
+	return textResult(
+		`Pipelines (mock mode):\n\n${formatPipelineList(data.pipelines as any)}`,
+		{ count: data.pipelines.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get a single pipeline by ID.
+ */
+export function mockGetPipeline(pipelineId: number): ToolResult {
+	const data = getPipelines();
+	const pipeline = data.pipelines.find((p) => p.id === pipelineId);
+	if (!pipeline) {
+		return errorResult(`Pipeline #${pipelineId} not found (mock mode)`);
+	}
+	return textResult(
+		`Pipeline detail (mock mode):\n\n${formatPipeline(pipeline as any)}`,
+		{ pipelineId: pipeline.id, mock: true },
+	);
+}
+
+/**
+ * Mock: list runs, optionally filtered by pipeline.
+ */
+export function mockListRuns(filters?: {
+	pipelineId?: number;
+	status?: string;
+	result?: string;
+	branch?: string;
+}): ToolResult {
+	const data = getRuns();
+	let runs = [...data.runs];
+
+	if (filters?.pipelineId) {
+		runs = runs.filter((r) => r.pipeline?.id === filters.pipelineId);
+	}
+	if (filters?.status) {
+		runs = runs.filter((r) => r.state === filters.status);
+	}
+	if (filters?.result) {
+		runs = runs.filter((r) => r.result === filters.result);
+	}
+	if (filters?.branch) {
+		const branchRef = filters.branch.startsWith("refs/") ? filters.branch : `refs/heads/${filters.branch}`;
+		runs = runs.filter((r) => r.resources?.repositories?.self?.refName === branchRef);
+	}
+
+	return textResult(
+		`Runs (mock mode):\n\n${formatRunList(runs as any)}`,
+		{ count: runs.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get a single run.
+ */
+export function mockGetRun(pipelineId: number, runId: number): ToolResult {
+	const data = getRuns();
+	const run = data.runs.find((r) => r.id === runId && r.pipeline?.id === pipelineId);
+	if (!run) {
+		return errorResult(`Run #${runId} not found for pipeline #${pipelineId} (mock mode)`);
+	}
+	return textResult(
+		`Run detail (mock mode):\n\n${formatRun(run as any)}`,
+		{ pipelineId, runId: run.id, mock: true },
+	);
+}
+
+/**
+ * Mock: get artifacts for a run.
+ */
+export function mockGetRunArtifacts(pipelineId: number, runId: number): ToolResult {
+	const data = getRunArtifacts();
+	const artifacts = data.artifacts[String(runId)];
+	if (!artifacts || artifacts.length === 0) {
+		return textResult(
+			`No artifacts for run #${runId} (mock mode)`,
+			{ pipelineId, runId, count: 0, mock: true },
+		);
+	}
+	return textResult(
+		`Artifacts for run #${runId} (mock mode):\n\n${formatArtifactList(artifacts as any)}`,
+		{ pipelineId, runId, count: artifacts.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get log entries for a run.
+ */
+export function mockGetRunLogs(pipelineId: number, runId: number): ToolResult {
+	const data = getRunLogs();
+	const logs = data.logs[String(runId)];
+	if (!logs || logs.length === 0) {
+		return textResult(
+			`No logs for run #${runId} (mock mode)`,
+			{ pipelineId, runId, count: 0, mock: true },
+		);
+	}
+
+	const lines = logs.map((log) => {
+		const created = log.createdOn ? new Date(log.createdOn).toISOString().slice(0, 19).replace("T", " ") : "?";
+		return `Log #${log.id ?? "?"} (${log.lineCount ?? 0} lines) — ${created}`;
+	});
+
+	return textResult(
+		`Logs for run #${runId} (mock mode):\n\n${lines.join("\n")}`,
+		{ pipelineId, runId, count: logs.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get timeline for a run.
+ */
+export function mockGetRunTimeline(pipelineId: number, runId: number): ToolResult {
+	const data = getRunTimelines();
+	const timeline = data.timelines[String(runId)];
+	if (!timeline || !timeline.records || timeline.records.length === 0) {
+		return textResult(
+			`No timeline for run #${runId} (mock mode)`,
+			{ pipelineId, runId, count: 0, mock: true },
+		);
+	}
+	return textResult(
+		`Timeline for run #${runId} (mock mode):\n\n${formatTimeline(timeline as any)}`,
+		{ pipelineId, runId, count: timeline.records.length, mock: true },
+	);
+}
+
+/**
+ * Mock: run a pipeline — returns a simulated new run.
+ */
+export function mockRunPipeline(
+	pipelineId: number,
+	branch?: string,
+	templateParameters?: Record<string, string>,
+): ToolResult {
+	const data = getPipelines();
+	const pipeline = data.pipelines.find((p) => p.id === pipelineId);
+	if (!pipeline) {
+		return errorResult(`Pipeline #${pipelineId} not found (mock mode)`);
+	}
+	const newRunId = 100 + Math.floor(Math.random() * 900);
+	const branchRef = branch ? `refs/heads/${branch}` : "refs/heads/main";
+	const params = templateParameters ?? {};
+	const paramStr = Object.keys(params).length > 0
+		? `\n- **Parameters:** ${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(", ")}`
+		: "";
+
+	return textResult(
+		[
+			`✅ Queued run #${newRunId} for "${pipeline.name}" (mock mode)`,
+			"",
+			`- **Pipeline:** ${pipeline.name} (#${pipeline.id})`,
+			`- **Branch:** ${branchRef.replace("refs/heads/", "")}`,
+			`- **State:** inProgress`,
+			paramStr,
+			"",
+			"⚠️ This is mock data — no pipeline was actually run.",
+		].filter(Boolean).join("\n"),
+		{ pipelineId, runId: newRunId, branch: branchRef, mock: true },
+	);
+}
+
+/**
+ * Mock: cancel a run.
+ */
+export function mockCancelRun(pipelineId: number, runId: number): ToolResult {
+	const data = getRuns();
+	const run = data.runs.find((r) => r.id === runId && r.pipeline?.id === pipelineId);
+	if (!run) {
+		return errorResult(`Run #${runId} not found for pipeline #${pipelineId} (mock mode)`);
+	}
+	if (run.state !== "inProgress") {
+		return errorResult(`Run #${runId} is not in progress (state: ${run.state}) — cannot cancel (mock mode)`);
+	}
+	return textResult(
+		[
+			`✅ Cancelled run #${runId} (mock mode)`,
+			"",
+			`- **Pipeline:** ${run.pipeline?.name ?? "?"} (#${pipelineId})`,
+			`- **State:** cancelling`,
+			"",
+			"⚠️ This is mock data — no run was actually cancelled.",
+		].join("\n"),
+		{ pipelineId, runId, mock: true },
+	);
+}
+
+/**
+ * Mock: retry a failed run.
+ */
+export function mockRetryRun(pipelineId: number, runId: number): ToolResult {
+	const data = getRuns();
+	const run = data.runs.find((r) => r.id === runId && r.pipeline?.id === pipelineId);
+	if (!run) {
+		return errorResult(`Run #${runId} not found for pipeline #${pipelineId} (mock mode)`);
+	}
+	const newRunId = runId + 1000;
+	return textResult(
+		[
+			`✅ Retried run #${runId} → new run #${newRunId} (mock mode)`,
+			"",
+			`- **Pipeline:** ${run.pipeline?.name ?? "?"} (#${pipelineId})`,
+			`- **Original run:** #${runId}`,
+			`- **New run:** #${newRunId}`,
+			`- **State:** inProgress`,
+			"",
+			"⚠️ This is mock data — no run was actually retried.",
+		].join("\n"),
+		{ pipelineId, originalRunId: runId, newRunId, mock: true },
+	);
+}
+
 /**
  * Clear cached fixtures (useful for testing).
  */
@@ -998,4 +1327,9 @@ export function clearFixtureCache(): void {
 	_prCommits = undefined;
 	_policies = undefined;
 	_policyEvals = undefined;
+	_pipelines = undefined;
+	_runs = undefined;
+	_runArtifacts = undefined;
+	_runLogs = undefined;
+	_runTimelines = undefined;
 }
