@@ -84,6 +84,28 @@ export async function getPolicyApi(
 }
 
 /**
+ * Get the Build API client — builds, timelines, logs, artifacts.
+ */
+export async function getBuildApi(
+	config: AdoConfig,
+	signal?: AbortSignal,
+) {
+	const connection = await getConnection(config, signal);
+	return connection.getBuildApi();
+}
+
+/**
+ * Get the Pipelines API client — YAML pipelines, runs.
+ */
+export async function getPipelinesApi(
+	config: AdoConfig,
+	signal?: AbortSignal,
+) {
+	const connection = await getConnection(config, signal);
+	return connection.getPipelinesApi();
+}
+
+/**
  * Clear cached connections (useful after auth failure retry).
  */
 export function clearConnectionCache(): void {

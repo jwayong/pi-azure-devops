@@ -85,6 +85,10 @@ export const MUTATION_TOOLS = new Set([
 	"ado_update_pull_request",
 	"ado_add_pull_request_comment",
 	"ado_set_pull_request_vote",
+	// Phase 2: Pipelines
+	"ado_run_pipeline",
+	"ado_cancel_run",
+	"ado_retry_run",
 ]);
 
 export function isMutationTool(toolName: string): boolean {

@@ -1,9 +1,9 @@
 ---
 name: ado-workitems
-description: Azure DevOps work item, board, repo, and pull request operations. Use when the user asks to create, read, update, query, comment on, or link work items, or when they ask about boards, sprints, iterations, team capacity, backlog management, repositories, branches, pull requests, code reviews, or policies. Covers WIQL queries, work item types, revisions, boards, sprints, capacity, Git repos, PR workflows, voting, and policy evaluations.
+description: Azure DevOps work item, board, repo, pull request, and pipeline operations. Use when the user asks to create, read, update, query, comment on, or link work items, or when they ask about boards, sprints, iterations, team capacity, backlog management, repositories, branches, pull requests, code reviews, policies, pipelines, builds, runs, artifacts, logs, or CI/CD. Covers WIQL queries, work item types, revisions, boards, sprints, capacity, Git repos, PR workflows, voting, policy evaluations, YAML pipelines, build runs, artifacts, and timeline.
 ---
 
-# Azure DevOps Work Items, Boards, & Pull Requests
+# Azure DevOps Work Items, Boards, Pull Requests, & Pipelines
 
 ## Setup
 
@@ -59,6 +59,13 @@ Run `ado_doctor` first to verify your configuration.
 | `ado_get_pull_request_commits` | User wants to see commits in a PR |
 | `ado_list_policies` | User wants to see branch/PR policies configured for the project |
 | `ado_get_policy_evaluations` | User wants to check if PR policies are passing (approved/pending/rejected) |
+| `ado_list_pipelines` | User wants to discover YAML pipelines in the project |
+| `ado_get_pipeline` | User wants detail of a specific pipeline (YAML path, repo, folder) |
+| `ado_list_runs` | User wants to see pipeline runs (builds) — filter by pipeline, status, result, branch |
+| `ado_get_run` | User wants detail of a specific pipeline run |
+| `ado_get_run_artifacts` | User wants to see artifacts produced by a build |
+| `ado_get_run_logs` | User wants to see build log entries |
+| `ado_get_run_timeline` | User wants to see stages/jobs/tasks timeline for a build |
 
 ### Write Tools (gated by safety level)
 
@@ -75,6 +82,9 @@ Run `ado_doctor` first to verify your configuration.
 | `ado_update_pull_request` | User wants to change PR title, description, or status (abandon/complete) |
 | `ado_add_pull_request_comment` | User wants to add a comment on a PR |
 | `ado_set_pull_request_vote` | User wants to approve, reject, or vote on a PR |
+| `ado_run_pipeline` | User wants to queue/trigger a pipeline run |
+| `ado_cancel_run` | User wants to cancel an in-progress pipeline run |
+| `ado_retry_run` | User wants to retry a failed pipeline run |
 
 ## Team Context
 
@@ -346,6 +356,11 @@ Or pass `{ "mock": true }` to any tool's parameters.
 13. **Check `ado_get_policy_evaluations` before approving** — verify all policies are passing.
 14. **Use full ref names** (`refs/heads/feature/login`) when specifying source/target branches for PRs.
 15. **Use `ado_list_pull_requests(status: "active")`** to find open PRs — don't guess PR IDs.
+16. **Use `ado_list_pipelines` first** to find the pipeline ID before running or inspecting runs.
+17. **Check `ado_get_run_timeline` for failed runs** to identify which stage/job/task failed.
+18. **Use `ado_get_run_logs` to see detailed error messages** after identifying failing tasks.
+19. **Use `ado_list_runs(status: "inProgress")`** to monitor currently active runs.
+20. **Template parameters must match YAML parameter names exactly** — check the pipeline YAML definition.
 
 ## Repository Reference
 
@@ -481,6 +496,52 @@ ado_list_pull_requests(status: "completed", top: 10)
 
 **Workflow:** Check `ado_get_policy_evaluations(prId)` before approving/voting to see if any policies are blocking.
 
+## Pipeline Reference
+
+### Pipeline Identification
+
+Pipelines are identified by numeric ID. Use `ado_list_pipelines` to discover pipelines and their IDs. Each pipeline has:
+- **id** — Numeric pipeline ID (used by all pipeline tools)
+- **name** — Display name (e.g., "CI Pipeline")
+- **folder** — Folder path (e.g., `\deploy`)
+- **configuration.path** — YAML file path (e.g., `azure-pipelines.yml`)
+- **configuration.repository** — Source repository
+
+### Run States
+
+| State | Description |
+|-------|------------|
+| `completed` | Run finished (check result for success/failure) |
+| `inProgress` | Run is currently executing |
+| `cancelling` | Run is being cancelled |
+
+### Run Results
+
+| Result | Description |
+|--------|------------|
+| `succeeded` | All stages passed |
+| `failed` | One or more stages failed |
+| `canceled` | Run was cancelled before completion |
+| `partiallySucceeded` | Some stages passed, some failed |
+
+### Template Parameters
+
+YAML pipelines can accept template parameters as key-value pairs:
+```
+ado_run_pipeline(pipelineId: 1, templateParameters: { "environment": "production", "region": "us-east" })
+```
+
+Parameter names must match the `parameters:` block in the YAML pipeline definition exactly.
+
+### Timeline Hierarchy
+
+Run timelines follow a Stage → Job → Task hierarchy:
+- **Stage** — Top-level grouping (e.g., Build, Test, Deploy)
+- **Job** — Execution unit within a stage (runs on an agent)
+- **Task** — Individual step within a job (e.g., npm install, npm test)
+
+Use `ado_get_run_timeline` to inspect which stage/job/task failed.
+
 ## Error Handling
 
 | Situation | Action |
@@ -493,3 +554,6 @@ ado_list_pull_requests(status: "completed", top: 10)
 | "Repository not found" | Use `ado_list_repos` to find the correct repository ID or name. |
 | "PR not found" | Use `ado_list_pull_requests` to find the correct PR ID. |
 | "Rate limited" | Wait a moment and retry. Reduce query result counts. |
+| "Pipeline not found" | Use `ado_list_pipelines` to find the correct pipeline ID. |
+| "Run not found" | Use `ado_list_runs` to find the correct run ID for the pipeline. |
+| "Run is not in progress" | Can only cancel runs with state `inProgress`. Check the run state first. |

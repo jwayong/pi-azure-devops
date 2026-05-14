@@ -646,3 +646,222 @@ export function formatPolicyEvaluation(evaluation: PolicyEvaluationLike): string
 
 	return `**${evaluation.policyDisplayName ?? "?"}**: ${statusIcon} (${started}${completed !== "—" ? ` → ${completed}` : ""})`;
 }
+
+// ---------------------------------------------------------------------------
+// Pipeline formatting
+// ---------------------------------------------------------------------------
+
+const RUN_STATE_ICONS: Record<string, string> = {
+	completed: "✅",
+	inProgress: "⏳",
+	cancelling: "❌",
+};
+
+const RUN_RESULT_LABELS: Record<string, string> = {
+	succeeded: "succeeded",
+	failed: "failed",
+	canceled: "canceled",
+	partiallySucceeded: "partially succeeded",
+};
+
+interface PipelineLike {
+	id?: number;
+	name?: string;
+	folder?: string;
+	revision?: number;
+	configuration?: {
+		type?: string;
+		path?: string;
+		repository?: { id?: string; name?: string; type?: string };
+	};
+	url?: string;
+}
+
+export function formatPipeline(pipeline: PipelineLike): string {
+	const lines: string[] = [];
+	lines.push(`**${pipeline.name ?? "Unknown"}** (id: ${pipeline.id ?? "?"})`);
+	if (pipeline.folder) lines.push(`- **Folder:** ${pipeline.folder}`);
+	const cfg = pipeline.configuration;
+	if (cfg) {
+		lines.push(`- **Type:** ${cfg.type ?? "?"}`);
+		if (cfg.path) lines.push(`- **Path:** ${cfg.path}`);
+		if (cfg.repository?.name) lines.push(`- **Repository:** ${cfg.repository.name}`);
+	}
+	if (pipeline.url) lines.push(`- **URL:** ${pipeline.url}`);
+	return lines.join("\n");
+}
+
+export function formatPipelineList(pipelines: PipelineLike[]): string {
+	if (pipelines.length === 0) return "No pipelines found.";
+	return pipelines.map(formatPipeline).join("\n");
+}
+
+interface RunLike {
+	id?: number;
+	name?: string;
+	pipeline?: { id?: number; name?: string };
+	state?: string;
+	result?: string | null;
+	createdDate?: string;
+	finishedDate?: string | null;
+	resources?: {
+		repositories?: {
+			self?: { refName?: string; version?: string };
+		};
+	};
+	templateParameters?: Record<string, string>;
+	url?: string;
+}
+
+export function formatDuration(createdDate?: string, finishedDate?: string | null): string {
+	if (!createdDate) return "?";
+	const start = new Date(createdDate).getTime();
+	const end = finishedDate ? new Date(finishedDate).getTime() : Date.now();
+	const diffMs = end - start;
+	if (diffMs < 0) return "?";
+	const seconds = Math.floor(diffMs / 1000);
+	const minutes = Math.floor(seconds / 60);
+	const hours = Math.floor(minutes / 60);
+	if (hours > 0) return `${hours}h ${minutes % 60}m`;
+	if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+	return `${seconds}s`;
+}
+
+export function formatRun(run: RunLike): string {
+	const lines: string[] = [];
+	const stateIcon = RUN_STATE_ICONS[run.state ?? ""] ?? "⏸️";
+	const resultLabel = run.result ? (RUN_RESULT_LABELS[run.result] ?? run.result) : "";
+	const pipelineName = run.pipeline?.name ?? "?";
+	const branch = run.resources?.repositories?.self?.refName?.replace("refs/heads/", "") ?? "?";
+	const duration = formatDuration(run.createdDate, run.finishedDate);
+
+	lines.push(`# Run #${run.id ?? "?"} — ${pipelineName}`);
+	lines.push(`- **State:** ${stateIcon} ${run.state ?? "unknown"}`);
+	if (resultLabel) lines.push(`- **Result:** ${resultLabel}`);
+	lines.push(`- **Branch:** ${branch}`);
+	lines.push(`- **Duration:** ${duration}`);
+
+	if (run.createdDate) {
+		lines.push(`- **Started:** ${new Date(run.createdDate).toISOString().slice(0, 19).replace("T", " ")}`);
+	}
+	if (run.finishedDate) {
+		lines.push(`- **Finished:** ${new Date(run.finishedDate).toISOString().slice(0, 19).replace("T", " ")}`);
+	}
+
+	const params = run.templateParameters ?? {};
+	const paramKeys = Object.keys(params);
+	if (paramKeys.length > 0) {
+		lines.push(`- **Parameters:** ${paramKeys.map((k) => `${k}=${params[k]}`).join(", ")}`);
+	}
+
+	if (run.url) lines.push(`- **URL:** ${run.url}`);
+	return lines.join("\n");
+}
+
+export function formatRunList(runs: RunLike[]): string {
+	if (runs.length === 0) return "No runs found.";
+
+	const lines: string[] = [];
+	for (const run of runs) {
+		const stateIcon = RUN_STATE_ICONS[run.state ?? ""] ?? "⏸️";
+		const resultLabel = run.result ? (RUN_RESULT_LABELS[run.result] ?? run.result) : "";
+		const pipelineName = run.pipeline?.name ?? "?";
+		const branch = run.resources?.repositories?.self?.refName?.replace("refs/heads/", "") ?? "?";
+		const duration = formatDuration(run.createdDate, run.finishedDate);
+		const statusStr = resultLabel ? `${stateIcon} ${resultLabel}` : `${stateIcon} ${run.state ?? "?"}`;
+		lines.push(`#${run.id ?? "?"} ${pipelineName} — ${statusStr} — ${branch} (${duration})`);
+	}
+	return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Artifact formatting
+// ---------------------------------------------------------------------------
+
+interface ArtifactLike {
+	id?: number;
+	name?: string;
+	resource?: {
+		type?: string;
+		data?: string;
+		url?: string;
+	};
+}
+
+export function formatArtifact(artifact: ArtifactLike): string {
+	const lines: string[] = [];
+	lines.push(`**${artifact.name ?? "Unknown"}** (id: ${artifact.id ?? "?"})`);
+	if (artifact.resource?.type) lines.push(`- **Type:** ${artifact.resource.type}`);
+	if (artifact.resource?.data) lines.push(`- **Data:** ${artifact.resource.data}`);
+	if (artifact.resource?.url) lines.push(`- **URL:** ${artifact.resource.url}`);
+	return lines.join("\n");
+}
+
+export function formatArtifactList(artifacts: ArtifactLike[]): string {
+	if (artifacts.length === 0) return "No artifacts found.";
+	return artifacts.map(formatArtifact).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Timeline formatting
+// ---------------------------------------------------------------------------
+
+const TIMELINE_STATE_ICONS: Record<string, string> = {
+	completed: "✅",
+	inProgress: "⏳",
+	pending: "⏸️",
+};
+
+const TIMELINE_RESULT_ICONS: Record<string, string> = {
+	succeeded: "🟢",
+	failed: "🔴",
+	canceled: "⚪",
+	skipped: "⏭️",
+	abandoned: "⚪",
+};
+
+interface TimelineRecordLike {
+	id?: string;
+	parentId?: string | null;
+	type?: string;
+	name?: string;
+	order?: number;
+	state?: string;
+	result?: string;
+	startTime?: string;
+	finishTime?: string;
+	errorCount?: number;
+	warningCount?: number;
+}
+
+interface TimelineLike {
+	records?: TimelineRecordLike[];
+}
+
+export function formatTimelineRecord(record: TimelineRecordLike): string {
+	const stateIcon = TIMELINE_STATE_ICONS[record.state ?? ""] ?? "⏸️";
+	const resultIcon = record.result ? (TIMELINE_RESULT_ICONS[record.result] ?? "") : "";
+	const icon = resultIcon || stateIcon;
+	const duration = formatDuration(record.startTime, record.finishTime);
+	const issues: string[] = [];
+	if ((record.errorCount ?? 0) > 0) issues.push(`${record.errorCount} error(s)`);
+	if ((record.warningCount ?? 0) > 0) issues.push(`${record.warningCount} warning(s)`);
+	const issueStr = issues.length > 0 ? ` — ${issues.join(", ")}` : "";
+
+	return `${icon} **${record.name ?? "?"}** [${record.type ?? "?"}] (${duration})${issueStr}`;
+}
+
+export function formatTimeline(timeline: TimelineLike): string {
+	const records = timeline.records ?? [];
+	if (records.length === 0) return "No timeline records.";
+
+	const sorted = [...records].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+	const lines: string[] = [];
+
+	for (const record of sorted) {
+		const indent = record.parentId ? (record.type === "Task" ? "    " : "  ") : "";
+		lines.push(`${indent}${formatTimelineRecord(record)}`);
+	}
+
+	return lines.join("\n");
+}

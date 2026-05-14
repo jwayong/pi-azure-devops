@@ -34,6 +34,16 @@ import { createPullRequestTool } from "../tools/create-pull-request.js";
 import { updatePullRequestTool } from "../tools/update-pull-request.js";
 import { addPullRequestCommentTool } from "../tools/add-pull-request-comment.js";
 import { setPullRequestVoteTool } from "../tools/set-pull-request-vote.js";
+import { listPipelinesTool } from "../tools/list-pipelines.js";
+import { getPipelineTool } from "../tools/get-pipeline.js";
+import { listRunsTool } from "../tools/list-runs.js";
+import { getRunTool } from "../tools/get-run.js";
+import { getRunArtifactsTool } from "../tools/get-run-artifacts.js";
+import { getRunLogsTool } from "../tools/get-run-logs.js";
+import { getRunTimelineTool } from "../tools/get-run-timeline.js";
+import { runPipelineTool } from "../tools/run-pipeline.js";
+import { cancelRunTool } from "../tools/cancel-run.js";
+import { retryRunTool } from "../tools/retry-run.js";
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 import { registerIterationAutocomplete } from "../autocomplete/iteration-autocomplete.js";
 
@@ -75,6 +85,18 @@ const tools = [
 	updatePullRequestTool,
 	addPullRequestCommentTool,
 	setPullRequestVoteTool,
+	// Phase 2: Pipelines (read)
+	listPipelinesTool,
+	getPipelineTool,
+	listRunsTool,
+	getRunTool,
+	getRunArtifactsTool,
+	getRunLogsTool,
+	getRunTimelineTool,
+	// Phase 2: Pipelines (write)
+	runPipelineTool,
+	cancelRunTool,
+	retryRunTool,
 ];
 
 // Type alias for tool execute signature parameters
