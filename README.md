@@ -16,15 +16,15 @@ pi -e npm:@jwayong/pi-azure-devops
 
 ## Features
 
-- **32 tools** — work items, boards, sprints, repos, pull requests, and more
+- **42 tools** — work items, boards, sprints, repos, pull requests, pipelines, and more
 - **Dual auth** — PAT (`ADO_PAT`) or Azure CLI (`az`) with auto-detect
 - **Dual config** — environment variables or `.pi/settings.json`
 - **Safety model** — `open` / `confirm` / `readonly` (default: `confirm`)
 - **Mock mode** — work offline with fixture data (`ADO_MOCK=1`)
 - **Autocomplete** — `#1234` work item ID completion
-- **Skill** — `ado-workitems` with WIQL, board, sprint, and capacity reference
-- **9 prompt templates** — triage, status reports, batch create, review history, sprint health, sprint planning, board review, PR review, PR creator
-- **611 tests** — comprehensive coverage, all offline
+- **Skill** — `ado-workitems` with WIQL, board, sprint, capacity, and pipeline reference
+- **11 prompt templates** — triage, status reports, batch create, review history, sprint health, sprint planning, board review, PR review, PR creator, pipeline status, deploy
+- **752 tests** — comprehensive coverage, all offline
 
 ### What's Included
 
@@ -38,11 +38,11 @@ pi -e npm:@jwayong/pi-azure-devops
 | Repos | List/get repos, list branches | 3 | — |
 | Pull Requests | List/get PRs, threads, commits, create/update, comment, vote | 4 | 4 |
 | Policies | List policies, get evaluations | 2 | — |
+| Pipelines | List/get pipelines, list/get runs, artifacts, logs, timeline, run/cancel/retry | 7 | 3 |
 | Config | Doctor (health check) | 1 | — |
 
 ### Coming Later
 
-- Phase 2: Pipelines (builds & releases)
 - Phase 4: Test Plans
 
 ## Quick Start
@@ -95,6 +95,8 @@ Type `/` in the prompt editor to see available templates:
 | `/ado-sprint-health [team]` | Sprint health check — status, capacity, burndown |
 | `/ado-plan-sprint <sprint\|next>` | Sprint planning — propose work assignment based on capacity |
 | `/ado-board-review <board> [team]` | Board review — analyze setup and suggest improvements |
+| `/ado-pipeline-status [pipeline-id]` | Pipeline health check — recent runs, failure analysis |
+| `/ado-deploy <pipeline-id> [branch]` | Deployment pipeline with pre-deploy safety checks |
 
 Examples:
 
@@ -154,6 +156,13 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 | `ado_get_pull_request_commits` | Get commits in a pull request |
 | `ado_list_policies` | List policy configurations |
 | `ado_get_policy_evaluations` | Get policy evaluation status for a PR |
+| `ado_list_pipelines` | List YAML pipelines in the project |
+| `ado_get_pipeline` | Get pipeline detail by ID (YAML path, repo, folder) |
+| `ado_list_runs` | List pipeline runs with optional filters (pipeline, status, result, branch) |
+| `ado_get_run` | Get a single pipeline run detail |
+| `ado_get_run_artifacts` | Get artifacts produced by a pipeline run |
+| `ado_get_run_logs` | Get log entries for a pipeline run |
+| `ado_get_run_timeline` | Get stages/jobs/tasks timeline for a pipeline run |
 
 ### Write Tools (gated by safety level)
 
@@ -170,10 +179,13 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 | `ado_update_pull_request` | Update title, description, or status of a PR |
 | `ado_add_pull_request_comment` | Add a comment to a PR thread |
 | `ado_set_pull_request_vote` | Set vote on a PR (approve, reject, etc.) |
+| `ado_run_pipeline` | Queue/trigger a pipeline run |
+| `ado_cancel_run` | Cancel an in-progress pipeline run |
+| `ado_retry_run` | Retry a failed pipeline run |
 
 ## Prompt Templates
 
-The package includes 9 prompt templates for common ADO workflows. They're automatically available after installing the package.
+The package includes 11 prompt templates for common ADO workflows. They're automatically available after installing the package.
 
 | Command | Description | Arguments |
 |---------|-------------|----------|
@@ -185,6 +197,8 @@ The package includes 9 prompt templates for common ADO workflows. They're automa
 | `/ado-plan-sprint` | Sprint planning with capacity-based assignment | Sprint name or `next` |
 | `/ado-board-review` | Board configuration analysis and suggestions | Board ID, optional team |
 | `/ado-pr-review` | Review a PR — threads, policies, changes summary | PR ID, optional repository ID |
+| `/ado-pipeline-status` | Pipeline health check — recent runs, failures, duration trends | Optional pipeline ID |
+| `/ado-deploy` | Run a deployment pipeline with pre-deploy safety checks | Pipeline ID, optional branch/params |
 | `/ado-pr-creator` | Create a PR — suggest title/description from branch context | Repository ID, source branch |
 
 ### Usage
@@ -212,6 +226,12 @@ Type `/ado-` in the prompt editor to see autocomplete suggestions. Each template
 
 # Create a PR from feature branch
 /ado-pr-creator repo-webapp feature/login
+
+# Check pipeline health
+/ado-pipeline-status 1
+
+# Deploy with safety checks
+/ado-deploy 2 release/v2
 ```
 
 If you installed the package locally (e.g., `pi -e ./`), the templates are loaded from the `prompts/` directory as declared in `package.json`.
