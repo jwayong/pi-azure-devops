@@ -10,6 +10,22 @@ import { formatRunList } from "../utils/formatting.js";
 import { isMock, textResult, errorResult, type ToolResult } from "./shared.js";
 import { mockListRuns } from "../mocks/mock-handler.js";
 
+const STATUS_MAP: Record<string, number> = {
+	completed: 2,
+	inProgress: 1,
+	cancelling: 4,
+	postponed: 8,
+	notStarted: 32,
+	all: 47,
+};
+
+const RESULT_MAP: Record<string, number> = {
+	succeeded: 2,
+	partiallySucceeded: 4,
+	failed: 8,
+	canceled: 32,
+};
+
 export const listRunsTool = {
 	name: "ado_list_runs",
 	description:
@@ -63,8 +79,8 @@ export const listRunsTool = {
 				undefined, // maxTime
 				undefined, // requestedFor
 				undefined, // reasonFilter
-				params.status ? (params.status as any) : undefined,
-				params.result ? (params.result as any) : undefined,
+				params.status ? STATUS_MAP[params.status] : undefined,
+				params.result ? RESULT_MAP[params.result] : undefined,
 				undefined, // tagFilters
 				undefined, // properties
 				params.top ?? 25,

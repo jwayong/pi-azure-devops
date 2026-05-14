@@ -9,6 +9,9 @@ import { formatAdoError } from "../utils/errors.js";
 import { isMock, textResult, errorResult, type ToolResult } from "./shared.js";
 import { mockCancelRun } from "../mocks/mock-handler.js";
 
+/** BuildStatus.Cancelling — used to cancel an in-progress build */
+const BUILD_STATUS_CANCELLING = 4;
+
 export const cancelRunTool = {
 	name: "ado_cancel_run",
 	description:
@@ -36,9 +39,8 @@ export const cancelRunTool = {
 		try {
 			const buildApi = await getBuildApi(config, signal);
 
-			// BuildStatus.Cancelling = 4
-			const updated = await buildApi.updateBuild(
-				{ status: 4 } as any,
+			await buildApi.updateBuild(
+				{ status: BUILD_STATUS_CANCELLING } as any,
 				config.project,
 				params.runId,
 			);
