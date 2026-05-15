@@ -44,6 +44,8 @@ import { getRunTimelineTool } from "../tools/get-run-timeline.js";
 import { runPipelineTool } from "../tools/run-pipeline.js";
 import { cancelRunTool } from "../tools/cancel-run.js";
 import { retryRunTool } from "../tools/retry-run.js";
+import { createTestRunTool } from "../tools/create-test-run.js";
+import { updateTestResultsTool } from "../tools/update-test-results.js";
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 import { registerIterationAutocomplete } from "../autocomplete/iteration-autocomplete.js";
 
@@ -97,6 +99,9 @@ const tools = [
 	runPipelineTool,
 	cancelRunTool,
 	retryRunTool,
+	// Phase 4: Test Plans (write)
+	createTestRunTool,
+	updateTestResultsTool,
 ];
 
 // Type alias for tool execute signature parameters
