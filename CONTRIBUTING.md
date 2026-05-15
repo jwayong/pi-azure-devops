@@ -53,6 +53,9 @@ prompts/            # Pi prompt templates
 - **Boards/sprints/capacity**: Use `getWorkApi()` + `getCoreApi()`, resolve team context with `resolveTeamContext(config, params.team)` from `src/tools/shared.ts`.
 - **Repos/PRs**: Use `getGitApi()` from `src/utils/connection.ts`. `repositoryId` is always a parameter (never configured) since users work across repos.
 - **Policies**: Use `getPolicyApi()` from `src/utils/connection.ts`.
+- **Pipelines/runs**: Use `getPipelinesApi()` from `src/utils/connection.ts`. Pipeline ID is always a parameter.
+- **Test plans/suites/cases/points**: Use `getTestPlanApi()` from `src/utils/connection.ts`. Plan ID is always a parameter, suite ID required for cases/points.
+- **Test runs/results**: Use `getTestResultsApi()` from `src/utils/connection.ts`. Run ID is always a parameter.
 
 ## Testing
 
