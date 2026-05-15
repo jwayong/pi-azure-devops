@@ -145,6 +145,17 @@ export function formatMutationSummary(toolName: string, params: MutationParams):
 			const rId = params.runId ?? "?";
 			return `Retry run #${rId} (pipeline #${pId})`;
 		}
+		case "ado_create_test_run": {
+			const planId = params.planId ?? "?";
+			const name = String(params.name ?? "(auto-named)");
+			return `Create test run: '${name}' (plan #${planId})`;
+		}
+		case "ado_update_test_results": {
+			const runId = params.runId ?? "?";
+			const results = params.results as Array<unknown> | undefined;
+			const n = results?.length ?? 0;
+			return `Update ${n} test result(s) in run #${runId}`;
+		}
 		default:
 			return `${toolName}: ${JSON.stringify(params).slice(0, 100)}`;
 	}

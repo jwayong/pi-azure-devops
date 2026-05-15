@@ -89,6 +89,9 @@ export const MUTATION_TOOLS = new Set([
 	"ado_run_pipeline",
 	"ado_cancel_run",
 	"ado_retry_run",
+	// Phase 4: Test Plans
+	"ado_create_test_run",
+	"ado_update_test_results",
 ]);
 
 export function isMutationTool(toolName: string): boolean {

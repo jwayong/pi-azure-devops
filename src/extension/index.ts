@@ -52,6 +52,8 @@ import { listTestCasesTool } from "../tools/list-test-cases.js";
 import { listTestPointsTool } from "../tools/list-test-points.js";
 import { getTestRunTool } from "../tools/get-test-run.js";
 import { listTestRunsTool } from "../tools/list-test-runs.js";
+import { createTestRunTool } from "../tools/create-test-run.js";
+import { updateTestResultsTool } from "../tools/update-test-results.js";
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 import { registerIterationAutocomplete } from "../autocomplete/iteration-autocomplete.js";
 
@@ -114,6 +116,9 @@ const tools = [
 	listTestPointsTool,
 	getTestRunTool,
 	listTestRunsTool,
+	// Phase 4: Test Plans (write)
+	createTestRunTool,
+	updateTestResultsTool,
 ];
 
 // Type alias for tool execute signature parameters
