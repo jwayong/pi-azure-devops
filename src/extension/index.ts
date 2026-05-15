@@ -54,7 +54,6 @@ import { getTestRunTool } from "../tools/get-test-run.js";
 import { listTestRunsTool } from "../tools/list-test-runs.js";
 import { createTestRunTool } from "../tools/create-test-run.js";
 import { updateTestResultsTool } from "../tools/update-test-results.js";
-
 import { registerAutocomplete } from "../autocomplete/work-item-autocomplete.js";
 import { registerIterationAutocomplete } from "../autocomplete/iteration-autocomplete.js";
 
