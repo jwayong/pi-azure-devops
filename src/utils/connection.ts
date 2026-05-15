@@ -106,6 +106,28 @@ export async function getPipelinesApi(
 }
 
 /**
+ * Get the Test Plan API client — test plans, suites, cases, points.
+ */
+export async function getTestPlanApi(
+	config: AdoConfig,
+	signal?: AbortSignal,
+) {
+	const connection = await getConnection(config, signal);
+	return connection.getTestPlanApi();
+}
+
+/**
+ * Get the Test Results API client — test runs and results.
+ */
+export async function getTestResultsApi(
+	config: AdoConfig,
+	signal?: AbortSignal,
+) {
+	const connection = await getConnection(config, signal);
+	return connection.getTestResultsApi();
+}
+
+/**
  * Clear cached connections (useful after auth failure retry).
  */
 export function clearConnectionCache(): void {
