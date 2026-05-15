@@ -52,6 +52,16 @@ describe("connection exports", () => {
 		const { getPipelinesApi } = await import("../../src/utils/connection.js");
 		assert.equal(typeof getPipelinesApi, "function");
 	});
+
+	it("exports getTestPlanApi function", async () => {
+		const { getTestPlanApi } = await import("../../src/utils/connection.js");
+		assert.equal(typeof getTestPlanApi, "function");
+	});
+
+	it("exports getTestResultsApi function", async () => {
+		const { getTestResultsApi } = await import("../../src/utils/connection.js");
+		assert.equal(typeof getTestResultsApi, "function");
+	});
 });
 
 describe("clearConnectionCache", () => {
