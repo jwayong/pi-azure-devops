@@ -1,9 +1,9 @@
 ---
 name: ado-workitems
-description: Azure DevOps work item, board, repo, pull request, and pipeline operations. Use when the user asks to create, read, update, query, comment on, or link work items, or when they ask about boards, sprints, iterations, team capacity, backlog management, repositories, branches, pull requests, code reviews, policies, pipelines, builds, runs, artifacts, logs, or CI/CD. Covers WIQL queries, work item types, revisions, boards, sprints, capacity, Git repos, PR workflows, voting, policy evaluations, YAML pipelines, build runs, artifacts, and timeline.
+description: Azure DevOps work item, board, repo, pull request, pipeline, and test plan operations. Use when the user asks to create, read, update, query, comment on, or link work items, or when they ask about boards, sprints, iterations, team capacity, backlog management, repositories, branches, pull requests, code reviews, policies, pipelines, builds, runs, artifacts, logs, CI/CD, test plans, test suites, test cases, test points, test runs, or test results. Covers WIQL queries, work item types, revisions, boards, sprints, capacity, Git repos, PR workflows, voting, policy evaluations, YAML pipelines, build runs, artifacts, timeline, and test plan execution.
 ---
 
-# Azure DevOps Work Items, Boards, Pull Requests, & Pipelines
+# Azure DevOps Work Items, Boards, Pull Requests, Pipelines, & Test Plans
 
 ## Setup
 
@@ -66,6 +66,14 @@ Run `ado_doctor` first to verify your configuration.
 | `ado_get_run_artifacts` | User wants to see artifacts produced by a build |
 | `ado_get_run_logs` | User wants to see build log entries |
 | `ado_get_run_timeline` | User wants to see stages/jobs/tasks timeline for a build |
+| `ado_list_test_plans` | User wants to discover test plans in the project |
+| `ado_get_test_plan` | User wants details of a specific test plan (state, dates, root suite) |
+| `ado_list_test_suites` | User wants to see suites in a test plan |
+| `ado_get_test_suite` | User wants details of a specific test suite |
+| `ado_list_test_cases` | User wants to list test cases in a suite |
+| `ado_list_test_points` | User wants to see test point execution status |
+| `ado_list_test_runs` | User wants to see test runs (filter by plan, state, dates) |
+| `ado_get_test_run` | User wants details of a specific test run (statistics, results) |
 
 ### Write Tools (gated by safety level)
 
@@ -85,6 +93,8 @@ Run `ado_doctor` first to verify your configuration.
 | `ado_run_pipeline` | User wants to queue/trigger a pipeline run |
 | `ado_cancel_run` | User wants to cancel an in-progress pipeline run |
 | `ado_retry_run` | User wants to retry a failed pipeline run |
+| `ado_create_test_run` | User wants to create a test run from a plan and suites |
+| `ado_update_test_results` | User wants to record pass/fail outcomes for test cases in a run |
 
 ## Team Context
 
@@ -361,6 +371,11 @@ Or pass `{ "mock": true }` to any tool's parameters.
 18. **Use `ado_get_run_logs` to see detailed error messages** after identifying failing tasks.
 19. **Use `ado_list_runs(status: "inProgress")`** to monitor currently active runs.
 20. **Template parameters must match YAML parameter names exactly** — check the pipeline YAML definition.
+21. **Use `ado_list_test_points` to see current execution status** before creating a test run.
+22. **Create test runs from specific suites** to limit scope — pass only the suite IDs you need.
+23. **Use `ado_update_test_results` to record manual test outcomes** — set outcome per result ID.
+24. **Check `ado_get_test_run` statistics** to monitor progress (passed/failed/total counts).
+25. **Filter active plans with `filterActivePlans: true`** — avoids listing completed or archived plans.
 
 ## Repository Reference
 
@@ -542,6 +557,64 @@ Run timelines follow a Stage → Job → Task hierarchy:
 
 Use `ado_get_run_timeline` to inspect which stage/job/task failed.
 
+## Test Plan Reference
+
+### Test Plan Structure
+
+Test plans follow a **Plan → Suite → Case** hierarchy:
+- **Plan** — Top-level container for a testing effort (e.g., "Sprint 42 Tests")
+- **Suite** — Organizational grouping within a plan
+- **Case** — Individual test scenario with steps and expected results
+- **Point** — A specific test case + configuration assignment (tracks execution status)
+- **Run** — An execution session containing test results
+
+### Suite Types
+
+| Type | Description |
+|------|------------|
+| Static | Manually curated test case collection |
+| Dynamic (query-based) | Auto-populated from a WIQL query |
+| Requirement-based | Linked to a requirement work item |
+
+A **root suite** is auto-created with each plan and serves as the top-level container.
+
+### Test Outcome Reference
+
+| Outcome | Description |
+|---------|------------|
+| `passed` | Test executed successfully |
+| `failed` | Test had issues (exceptions, failed assertions) |
+| `blocked` | Test could not be executed |
+| `notExecuted` | Test was not run (user stopped) |
+| `inconclusive` | Test completed but pass/fail unclear |
+| `timeout` | Test exceeded time limit |
+| `aborted` | Test aborted by framework |
+| `notApplicable` | Test not applicable for this configuration |
+| `warning` | Test completed with warnings |
+| `error` | Test encountered a system error |
+| `inProgress` | Test is currently running |
+| `notImpacted` | Test not impacted by changes |
+
+### Test Run States
+
+| State | Description |
+|-------|------------|
+| `NotStarted` | Run created, no tests started |
+| `InProgress` | Tests are running |
+| `Completed` | All tests finished |
+| `Aborted` | Run stopped, remaining tests aborted |
+| `Waiting` | Run initializing (legacy) |
+
+### Typical Test Plan Workflow
+
+1. `ado_list_test_plans(filterActivePlans: true)` — find active test plans
+2. `ado_list_test_suites(planId)` — discover suites in the plan
+3. `ado_list_test_cases(planId, suiteId)` — see test cases
+4. `ado_list_test_points(planId, suiteId)` — check execution status
+5. `ado_create_test_run(planId, suiteIds)` — create a run
+6. `ado_update_test_results(runId, results)` — record outcomes
+7. `ado_get_test_run(runId)` — check run statistics
+
 ## Error Handling
 
 | Situation | Action |
@@ -557,3 +630,6 @@ Use `ado_get_run_timeline` to inspect which stage/job/task failed.
 | "Pipeline not found" | Use `ado_list_pipelines` to find the correct pipeline ID. |
 | "Run not found" | Use `ado_list_runs` to find the correct run ID for the pipeline. |
 | "Run is not in progress" | Can only cancel runs with state `inProgress`. Check the run state first. |
+| "Test plan not found" | Use `ado_list_test_plans` to find the correct plan ID. |
+| "Test suite not found" | Verify suite ID belongs to the specified plan. Use `ado_list_test_suites`. |
+| "Invalid test outcome" | Use values from the Test Outcome Reference table below. |
