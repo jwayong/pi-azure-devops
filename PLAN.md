@@ -2,7 +2,7 @@
 
 > A Pi package providing rich Azure DevOps integration, starting with work items and designed to grow into a comprehensive ADO integration (pipelines, repos, PRs, test plans, etc.).
 
-## Status: Phase 3 Complete (v0.3.0). Phase 2 planned — #62–#70
+## Status: Phase 2 Complete (v0.4.0). Phase 4 planned — #72–#80
 
 ## Package
 
@@ -394,10 +394,158 @@ type GitPullRequestCommentThread = Awaited<ReturnType<IGitApi["getThreads"]>>[nu
 type GitCommitRef = Awaited<ReturnType<IGitApi["getPullRequestCommits"]>>[number];
 ```
 
-### Phase 4: Test Plans
+### Phase 4: Test Plans & Test Runs
 
-- `ado_list_test_plans`, `ado_list_test_suites`, `ado_list_test_cases`
-- `ado_create_test_run`, `ado_update_test_results`
+#### Goal
+
+Add tools for Azure DevOps Test Plans. Users can browse test plans, suites, and cases; create and manage test runs; update test results; and view test point outcomes. Uses `ITestPlanApi` for plan/suite/case/point operations and `ITestResultsApi` for test run and result operations.
+
+#### API Clients
+
+- **TestPlanApi** from `azure-devops-node-api/TestPlanApi.js` — plan/suite/case/point CRUD: `getTestPlans`, `getTestSuitesForPlan`, `getTestCaseList`, `getPointsList`, `updateTestPoints`
+- **TestResultsApi** from `azure-devops-node-api/TestResultsApi.js` — test runs and results: `createTestRun`, `getTestRunById`, `getTestRuns`, `updateTestRun`, `addTestResultsToTestRun`, `updateTestResults`, `getTestResults`
+
+No new config fields needed — test plans use the existing `ADO_ORG_URL` and `ADO_PROJECT`.
+
+#### Tools
+
+| # | Tool | Description | Mutation | API Method |
+|---|------|-------------|----------|------------|
+| 1 | `ado_list_test_plans` | List test plans in the project, optionally filter by active | No | `TestPlanApi.getTestPlans(project, owner?, undefined, includePlanDetails?, filterActivePlans?)` |
+| 2 | `ado_get_test_plan` | Get a single test plan by ID | No | `TestPlanApi.getTestPlanById(project, planId)` |
+| 3 | `ado_list_test_suites` | List test suites for a plan | No | `TestPlanApi.getTestSuitesForPlan(project, planId, expand?)` |
+| 4 | `ado_get_test_suite` | Get a single test suite by plan and suite ID | No | `TestPlanApi.getTestSuiteById(project, planId, suiteId, expand?)` |
+| 5 | `ado_list_test_cases` | List test cases in a suite | No | `TestPlanApi.getTestCaseList(project, planId, suiteId, ...)` |
+| 6 | `ado_list_test_points` | List test points in a suite (shows outcome, tester, configuration) | No | `TestPlanApi.getPointsList(project, planId, suiteId, ...)` |
+| 7 | `ado_create_test_run` | Create a new test run from a test plan/suite | Yes | `TestResultsApi.createTestRun(runCreateModel, project)` |
+| 8 | `ado_update_test_results` | Update test case results in a run (pass, fail, etc.) | Yes | `TestResultsApi.updateTestResults(results, project, runId)` |
+| 9 | `ado_get_test_run` | Get a test run by ID with statistics | No | `TestResultsApi.getTestRunById(project, runId, includeDetails?)` |
+| 10 | `ado_list_test_runs` | List test runs, optionally filter by plan or build | No | `TestResultsApi.getTestRuns(project, buildUri?, owner?, tmiRunId?, planId?, includeRunDetails?)` |
+
+#### Design Decisions
+
+- **TestPlanApi for structure, TestResultsApi for execution.** Plans, suites, cases, and points come from `TestPlanApi`. Runs and results come from `TestResultsApi`. This matches ADO's own API design.
+- **`planId` is always a parameter.** Users may work across multiple test plans. Not configured globally.
+- **`suiteId` required for case/point listing.** Test cases and points always belong to a specific suite within a plan.
+- **Test outcomes mapped as strings.** ADO uses both numeric enums and strings for outcomes. Tools expose human-friendly strings: `"passed"`, `"failed"`, `"blocked"`, `"notExecuted"`, `"inconclusive"`, `"timeout"`, `"aborted"`, `"notApplicable"`, `"warning"`, `"error"`. Mapped to `TestOutcome` numeric enum for the API.
+- **Test run states:** `"notStarted"`, `"inProgress"`, `"completed"`, `"aborted"`, `"waiting"`. Mapped to `TestRunState` numeric enum.
+- **`ado_create_test_run` requires `planId` and `suiteIds`.** Creates a run scoped to a plan, selecting test points from specified suites.
+- **`ado_update_test_results` takes `runId` + array of results.** Each result has `testCaseResultId`, `outcome`, and optional `comment`.
+- **Test points show execution status.** `ado_list_test_points` returns the current outcome, assigned tester, and configuration for each point — useful for "who's testing what" queries.
+- **No delete tools.** Deleting plans/suites/cases is destructive and rarely needed. Users can do this in the ADO UI.
+
+#### Mock Fixtures
+
+| File | Contents |
+|------|----------|
+| `test-plans.json` | 3 test plans (Sprint 42, Regression, Smoke) with states, dates, root suite refs |
+| `test-suites.json` | 4 suites per plan (root, feature group, requirement-based, static) with children |
+| `test-cases.json` | 6 test cases across suites with work item details (title, state, assigned to) |
+| `test-points.json` | 8 test points with outcomes, configurations, testers |
+| `test-runs.json` | 3 test runs (active, completed, completed) with statistics |
+| `test-results.json` | 6 test case results with outcomes, durations, error messages |
+
+#### Mock Handlers
+
+| Handler | Returns |
+|---------|----------|
+| `mockListTestPlans(filters?)` | Filtered test plans |
+| `mockGetTestPlan(planId)` | Single test plan or error |
+| `mockListTestSuites(planId)` | Suites for a plan |
+| `mockGetTestSuite(planId, suiteId)` | Single suite or error |
+| `mockListTestCases(planId, suiteId)` | Test cases in a suite |
+| `mockListTestPoints(planId, suiteId)` | Test points in a suite |
+| `mockCreateTestRun(planId, suiteIds, name?)` | New test run |
+| `mockUpdateTestResults(runId, results)` | Updated results |
+| `mockGetTestRun(runId)` | Test run with statistics |
+| `mockListTestRuns(planId?)` | Test runs, optionally filtered by plan |
+
+#### Formatting Functions
+
+| Function | Output |
+|----------|--------|
+| `formatTestPlan(plan)` | Plan ID, name, state, dates, iteration, root suite, owner |
+| `formatTestPlanList(plans)` | Table: ID, name, state, dates, root suite |
+| `formatTestSuite(suite)` | Suite ID, name, type, parent, children count |
+| `formatTestSuiteList(suites)` | Compact list with hierarchy |
+| `formatTestCase(tc)` | Case ID, title, state, assigned to, configuration, order |
+| `formatTestCaseList(cases)` | Table: ID, title, state, assigned to |
+| `formatTestPoint(point)` | Point ID, case, configuration, outcome, tester |
+| `formatTestPointList(points)` | Table: point, case, config, outcome, tester |
+| `formatTestRun(run)` | Run ID, name, state, pass/fail/total counts, dates |
+| `formatTestRunList(runs)` | Table: ID, name, state, pass/total, date |
+| `formatTestResult(result)` | Result ID, case, outcome, duration, comment |
+| `formatTestResultList(results)` | Table: ID, case, outcome, duration |
+
+#### Safety Model Additions
+
+New mutation tools registered in `MUTATION_TOOLS`:
+- `ado_create_test_run`
+- `ado_update_test_results`
+
+New `formatMutationSummary` cases:
+- `ado_create_test_run`: `"Create test run: '{name}' (plan #{planId})"`
+- `ado_update_test_results`: `"Update {n} test result(s) in run #{runId}"`
+
+#### Connection Extensions
+
+Add `getTestPlanApi()` and `getTestResultsApi()` to `src/utils/connection.ts`:
+
+```typescript
+export async function getTestPlanApi(config: AdoConfig, signal?: AbortSignal) {
+  const connection = await getConnection(config, signal);
+  return connection.getTestPlanApi();
+}
+
+export async function getTestResultsApi(config: AdoConfig, signal?: AbortSignal) {
+  const connection = await getConnection(config, signal);
+  return connection.getTestResultsApi();
+}
+```
+
+#### Type Inference Pattern
+
+```typescript
+type TestPlan = Awaited<ReturnType<ITestPlanApi["getTestPlanById"]>>;
+type TestSuite = Awaited<ReturnType<ITestPlanApi["getTestSuiteById"]>>;
+type TestCase = Awaited<ReturnType<ITestPlanApi["getTestCaseList"]>>[number];
+type TestPoint = Awaited<ReturnType<ITestPlanApi["getPointsList"]>>[number];
+type TestRun = Awaited<ReturnType<ITestResultsApi["getTestRunById"]>>;
+type TestCaseResult = Awaited<ReturnType<ITestResultsApi["getTestResults"]>>[number];
+```
+
+#### SKILL.md Updates
+
+Add to `skills/ado-workitems/SKILL.md`:
+- Test Plan reference (structure: plan → suite → case → point)
+- Test outcome reference table
+- Test run state reference table
+- Test workflow guidance (browse plans → list cases → create run → update results)
+- Suite type reference (static, dynamic/query-based, requirement-based)
+- Best practices for test management
+
+#### New Prompt Templates
+
+| Template | Description |
+|----------|-------------|
+| `ado-test-status` | Test run status — summarize pass/fail rates, identify failures, suggest actions |
+| `ado-test-runner` | Create and manage a test run — select plan/suite, create run, record results |
+
+#### Issues
+
+| # | Issue | Depends On |
+|---|-------|------------|
+| #72 | Connection helpers (TestPlanApi + TestResultsApi) | — |
+| #73 | Mock fixtures + handlers + formatting | #72 |
+| #74 | Read tools (8 test plan tools) | #72, #73 |
+| #75 | Write tools (2 mutation tools) | #72, #73 |
+| #76 | Safety model extensions | #75 |
+| #77 | SKILL.md updates | #74, #75 |
+| #78 | Prompt templates (test-status, test-runner) | #74 |
+| #79 | Comprehensive test suite | #72–#76 |
+| #80 | README/docs + publish v0.5.0 | #77–#79 |
+
+**Total estimated tests: ~100 new (752 → ~852)**
 
 ### Phase 5: Boards & Backlogs ✅ (v0.2.0)
 
