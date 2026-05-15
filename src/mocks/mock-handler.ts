@@ -36,6 +36,15 @@ import {
 	formatRunList,
 	formatArtifactList,
 	formatTimeline,
+	formatTestPlan,
+	formatTestPlanList,
+	formatTestSuiteList,
+	formatTestSuite,
+	formatTestCaseList,
+	formatTestPointList,
+	formatTestRun,
+	formatTestRunList,
+	formatTestResultList,
 } from "../utils/formatting.js";
 import { textResult, errorResult, type ToolResult } from "../tools/shared.js";
 
@@ -1085,6 +1094,127 @@ function getRunTimelines(): RunTimelineFixture {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 4: Test plan fixture types + lazy-loaders
+// ---------------------------------------------------------------------------
+
+interface TestPlansFixture {
+	testPlans: Array<{
+		id: number;
+		name: string;
+		state?: string;
+		iteration?: string;
+		startDate?: string;
+		endDate?: string;
+		owner?: { displayName?: string; uniqueName?: string };
+		rootSuite?: { id?: number; name?: string };
+		revision?: number;
+		areaPath?: string;
+		url?: string;
+	}>;
+}
+
+interface TestSuitesFixture {
+	testSuites: Record<string, Array<{
+		id: number;
+		name: string;
+		suiteType?: string;
+		parentSuite?: { id?: number; name?: string } | null;
+		children?: number[];
+		testCaseCount?: number;
+		requirementId?: number;
+		plan?: { id?: number; name?: string };
+		url?: string;
+	}>>;
+}
+
+interface TestCasesFixture {
+	testCases: Record<string, Array<{
+		workItem?: {
+			id?: number;
+			name?: string;
+			workItemFields?: Array<Record<string, unknown>>;
+		};
+		order?: number;
+		pointAssignments?: Array<{ configurationId?: number; configurationName?: string }>;
+	}>>;
+}
+
+interface TestPointsFixture {
+	testPoints: Record<string, Array<{
+		id?: number;
+		testCaseReference?: { id?: number; name?: string };
+		configuration?: { id?: string; name?: string };
+		outcome?: string;
+		state?: string;
+		tester?: { displayName?: string; uniqueName?: string };
+		lastRunBuildNumber?: string | null;
+		url?: string;
+	}>>;
+}
+
+interface TestRunsFixture {
+	testRuns: Array<{
+		id: number;
+		name: string;
+		state?: string;
+		plan?: { id?: number; name?: string };
+		startedDate?: string;
+		completedDate?: string | null;
+		totalTests?: number;
+		passedTests?: number;
+		failedTests?: number;
+		incompleteTests?: number;
+		notApplicableTests?: number;
+		owner?: { displayName?: string; uniqueName?: string };
+		buildConfiguration?: { buildDefinitionId?: number } | null;
+		url?: string;
+	}>;
+}
+
+interface TestResultsFixture {
+	testResults: Record<string, Array<{
+		id?: number;
+		testCaseTitle?: string;
+		testCase?: { id?: number; name?: string };
+		outcome?: string;
+		state?: string;
+		durationInMs?: number;
+		startedDate?: string;
+		completedDate?: string;
+		errorMessage?: string | null;
+		comment?: string | null;
+		runBy?: { displayName?: string; uniqueName?: string };
+		url?: string;
+	}>>;
+}
+
+let _testPlans: TestPlansFixture | undefined;
+let _testSuites: TestSuitesFixture | undefined;
+let _testCases: TestCasesFixture | undefined;
+let _testPoints: TestPointsFixture | undefined;
+let _testRuns: TestRunsFixture | undefined;
+let _testResults: TestResultsFixture | undefined;
+
+function getTestPlans(): TestPlansFixture {
+	return (_testPlans ??= loadFixture<TestPlansFixture>("test-plans.json"));
+}
+function getTestSuites(): TestSuitesFixture {
+	return (_testSuites ??= loadFixture<TestSuitesFixture>("test-suites.json"));
+}
+function getTestCases(): TestCasesFixture {
+	return (_testCases ??= loadFixture<TestCasesFixture>("test-cases.json"));
+}
+function getTestPoints(): TestPointsFixture {
+	return (_testPoints ??= loadFixture<TestPointsFixture>("test-points.json"));
+}
+function getTestRuns(): TestRunsFixture {
+	return (_testRuns ??= loadFixture<TestRunsFixture>("test-runs.json"));
+}
+function getTestResults(): TestResultsFixture {
+	return (_testResults ??= loadFixture<TestResultsFixture>("test-results.json"));
+}
+
+// ---------------------------------------------------------------------------
 // Phase 2: Pipeline mock handlers
 // ---------------------------------------------------------------------------
 
@@ -1306,6 +1436,232 @@ export function mockRetryRun(pipelineId: number, runId: number): ToolResult {
 	);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 4: Test plan mock handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * Mock: list test plans, optionally filter by active only.
+ */
+export function mockListTestPlans(filters?: {
+	filterActivePlans?: boolean;
+}): ToolResult {
+	const data = getTestPlans();
+	let plans = [...data.testPlans];
+
+	if (filters?.filterActivePlans) {
+		plans = plans.filter((p) => p.state === "active");
+	}
+
+	return textResult(
+		`Test plans (mock mode):\n\n${formatTestPlanList(plans as any)}`,
+		{ count: plans.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get a single test plan by ID.
+ */
+export function mockGetTestPlan(planId: number): ToolResult {
+	const data = getTestPlans();
+	const plan = data.testPlans.find((p) => p.id === planId);
+	if (!plan) {
+		return errorResult(`Test plan #${planId} not found (mock mode)`);
+	}
+	return textResult(
+		`Test plan detail (mock mode):\n\n${formatTestPlan(plan as any)}`,
+		{ planId: plan.id, mock: true },
+	);
+}
+
+/**
+ * Mock: list test suites for a plan.
+ */
+export function mockListTestSuites(planId: number): ToolResult {
+	const data = getTestSuites();
+	const suites = data.testSuites[String(planId)];
+	if (!suites || suites.length === 0) {
+		return textResult(
+			`No test suites found for plan #${planId} (mock mode)`,
+			{ planId, count: 0, mock: true },
+		);
+	}
+	return textResult(
+		`Test suites for plan #${planId} (mock mode):\n\n${formatTestSuiteList(suites as any)}`,
+		{ planId, count: suites.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get a single test suite by plan and suite ID.
+ */
+export function mockGetTestSuite(planId: number, suiteId: number): ToolResult {
+	const data = getTestSuites();
+	const suites = data.testSuites[String(planId)];
+	if (!suites) {
+		return errorResult(`No suites found for plan #${planId} (mock mode)`);
+	}
+	const suite = suites.find((s) => s.id === suiteId);
+	if (!suite) {
+		return errorResult(`Test suite #${suiteId} not found in plan #${planId} (mock mode)`);
+	}
+	return textResult(
+		`Test suite detail (mock mode):\n\n${formatTestSuite(suite as any)}`,
+		{ planId, suiteId: suite.id, mock: true },
+	);
+}
+
+/**
+ * Mock: list test cases in a suite.
+ */
+export function mockListTestCases(planId: number, suiteId: number): ToolResult {
+	const key = `${planId}-${suiteId}`;
+	const data = getTestCases();
+	const cases = data.testCases[key];
+	if (!cases || cases.length === 0) {
+		return textResult(
+			`No test cases in suite #${suiteId} of plan #${planId} (mock mode)`,
+			{ planId, suiteId, count: 0, mock: true },
+		);
+	}
+	return textResult(
+		`Test cases in suite #${suiteId} (mock mode):\n\n${formatTestCaseList(cases as any)}`,
+		{ planId, suiteId, count: cases.length, mock: true },
+	);
+}
+
+/**
+ * Mock: list test points in a suite.
+ */
+export function mockListTestPoints(planId: number, suiteId: number): ToolResult {
+	const key = `${planId}-${suiteId}`;
+	const data = getTestPoints();
+	const points = data.testPoints[key];
+	if (!points || points.length === 0) {
+		return textResult(
+			`No test points in suite #${suiteId} of plan #${planId} (mock mode)`,
+			{ planId, suiteId, count: 0, mock: true },
+		);
+	}
+	return textResult(
+		`Test points in suite #${suiteId} (mock mode):\n\n${formatTestPointList(points as any)}`,
+		{ planId, suiteId, count: points.length, mock: true },
+	);
+}
+
+/**
+ * Mock: create a test run.
+ */
+export function mockCreateTestRun(
+	planId: number,
+	suiteIds: number[],
+	name?: string,
+): ToolResult {
+	const planData = getTestPlans();
+	const plan = planData.testPlans.find((p) => p.id === planId);
+	if (!plan) {
+		return errorResult(`Test plan #${planId} not found (mock mode)`);
+	}
+	const newRunId = 600 + Math.floor(Math.random() * 100);
+	const runName = name ?? `${plan.name} — Run ${newRunId}`;
+
+	return textResult(
+		[
+			`✅ Created test run #${newRunId} (mock mode)`,
+			"",
+			`- **Name:** ${runName}`,
+			`- **Plan:** ${plan.name} (#${planId})`,
+			`- **Suites:** ${suiteIds.map((s) => `#${s}`).join(", ")}`,
+			`- **State:** NotStarted`,
+			"",
+			"⚠️ This is mock data — no test run was actually created.",
+		].join("\n"),
+		{ planId, runId: newRunId, name: runName, mock: true },
+	);
+}
+
+/**
+ * Mock: update test results in a run.
+ */
+export function mockUpdateTestResults(
+	runId: number,
+	results: Array<{ testCaseResultId: number; outcome: string; comment?: string }>,
+): ToolResult {
+	const runsData = getTestRuns();
+	const run = runsData.testRuns.find((r) => r.id === runId);
+	if (!run) {
+		return errorResult(`Test run #${runId} not found (mock mode)`);
+	}
+
+	const lines = results.map((r) => {
+		const commentStr = r.comment ? ` — "${r.comment}"` : "";
+		return `  - Result #${r.testCaseResultId}: ${r.outcome}${commentStr}`;
+	});
+
+	return textResult(
+		[
+			`✅ Updated ${results.length} result(s) in run #${runId} (mock mode)`,
+			"",
+			...lines,
+			"",
+			"⚠️ This is mock data — no results were actually updated.",
+		].join("\n"),
+		{ runId, updatedCount: results.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get a test run by ID.
+ */
+export function mockGetTestRun(runId: number): ToolResult {
+	const data = getTestRuns();
+	const run = data.testRuns.find((r) => r.id === runId);
+	if (!run) {
+		return errorResult(`Test run #${runId} not found (mock mode)`);
+	}
+	return textResult(
+		`Test run detail (mock mode):\n\n${formatTestRun(run as any)}`,
+		{ runId: run.id, mock: true },
+	);
+}
+
+/**
+ * Mock: list test runs, optionally filtered by plan.
+ */
+export function mockListTestRuns(filters?: {
+	planId?: number;
+}): ToolResult {
+	const data = getTestRuns();
+	let runs = [...data.testRuns];
+
+	if (filters?.planId) {
+		runs = runs.filter((r) => r.plan?.id === filters.planId);
+	}
+
+	return textResult(
+		`Test runs (mock mode):\n\n${formatTestRunList(runs as any)}`,
+		{ count: runs.length, mock: true },
+	);
+}
+
+/**
+ * Mock: get test results for a run.
+ */
+export function mockGetTestResults(runId: number): ToolResult {
+	const data = getTestResults();
+	const results = data.testResults[String(runId)];
+	if (!results || results.length === 0) {
+		return textResult(
+			`No test results for run #${runId} (mock mode)`,
+			{ runId, count: 0, mock: true },
+		);
+	}
+	return textResult(
+		`Test results for run #${runId} (mock mode):\n\n${formatTestResultList(results as any)}`,
+		{ runId, count: results.length, mock: true },
+	);
+}
+
 /**
  * Clear cached fixtures (useful for testing).
  */
@@ -1332,4 +1688,10 @@ export function clearFixtureCache(): void {
 	_runArtifacts = undefined;
 	_runLogs = undefined;
 	_runTimelines = undefined;
+	_testPlans = undefined;
+	_testSuites = undefined;
+	_testCases = undefined;
+	_testPoints = undefined;
+	_testRuns = undefined;
+	_testResults = undefined;
 }

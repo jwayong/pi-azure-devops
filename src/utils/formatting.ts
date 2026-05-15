@@ -865,3 +865,283 @@ export function formatTimeline(timeline: TimelineLike): string {
 
 	return lines.join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Test Plan formatting
+// ---------------------------------------------------------------------------
+
+const TEST_OUTCOME_ICONS: Record<string, string> = {
+	passed: "🟢",
+	failed: "🔴",
+	blocked: "🚫",
+	notExecuted: "⏸️",
+	inconclusive: "❓",
+	timeout: "⏱️",
+	aborted: "⚪",
+	notApplicable: "➖",
+	warning: "⚠️",
+	error: "💥",
+	paused: "⏸️",
+	inProgress: "⏳",
+	notImpacted: "➖",
+};
+
+const TEST_RUN_STATE_ICONS: Record<string, string> = {
+	InProgress: "⏳",
+	Completed: "✅",
+	Aborted: "⚪",
+	Waiting: "⏸️",
+	NeedsInvestigation: "🔍",
+	NotStarted: "⏸️",
+};
+
+interface TestPlanLike {
+	id?: number;
+	name?: string;
+	state?: string;
+	iteration?: string;
+	startDate?: string;
+	endDate?: string;
+	owner?: { displayName?: string; uniqueName?: string };
+	rootSuite?: { id?: number; name?: string };
+	revision?: number;
+	areaPath?: string;
+	url?: string;
+}
+
+export function formatTestPlan(plan: TestPlanLike): string {
+	const lines: string[] = [];
+	lines.push(`**${plan.name ?? "Unknown"}** (id: ${plan.id ?? "?"})`);
+	lines.push(`- **State:** ${plan.state ?? "unknown"}`);
+	if (plan.iteration) lines.push(`- **Iteration:** ${plan.iteration}`);
+	if (plan.startDate) lines.push(`- **Start:** ${new Date(plan.startDate).toISOString().slice(0, 10)}`);
+	if (plan.endDate) lines.push(`- **End:** ${new Date(plan.endDate).toISOString().slice(0, 10)}`);
+	if (plan.owner?.displayName) lines.push(`- **Owner:** ${plan.owner.displayName}`);
+	if (plan.rootSuite) lines.push(`- **Root Suite:** #${plan.rootSuite.id} ${plan.rootSuite.name ?? ""}`);
+	if (plan.areaPath) lines.push(`- **Area:** ${plan.areaPath}`);
+	if (plan.url) lines.push(`- **URL:** ${plan.url}`);
+	return lines.join("\n");
+}
+
+export function formatTestPlanList(plans: TestPlanLike[]): string {
+	if (plans.length === 0) return "No test plans found.";
+	return plans.map(formatTestPlan).join("\n");
+}
+
+interface TestSuiteLike {
+	id?: number;
+	name?: string;
+	suiteType?: string;
+	parentSuite?: { id?: number; name?: string } | null;
+	children?: number[] | Array<{ id?: number }>;
+	testCaseCount?: number;
+	requirementId?: number;
+	plan?: { id?: number; name?: string };
+	url?: string;
+}
+
+const SUITE_TYPE_LABELS: Record<string, string> = {
+	staticTestSuite: "Static",
+	dynamicTestSuite: "Dynamic (query-based)",
+	requirementTestSuite: "Requirement-based",
+};
+
+export function formatTestSuite(suite: TestSuiteLike): string {
+	const lines: string[] = [];
+	const typeLabel = SUITE_TYPE_LABELS[suite.suiteType ?? ""] ?? suite.suiteType ?? "unknown";
+	lines.push(`**${suite.name ?? "Unknown"}** (id: ${suite.id ?? "?"})`);
+	lines.push(`- **Type:** ${typeLabel}`);
+	if (suite.parentSuite) lines.push(`- **Parent:** #${suite.parentSuite.id} ${suite.parentSuite.name ?? ""}`);
+	const childCount = Array.isArray(suite.children) ? suite.children.length : 0;
+	if (childCount > 0) lines.push(`- **Children:** ${childCount}`);
+	if (suite.testCaseCount !== undefined) lines.push(`- **Test Cases:** ${suite.testCaseCount}`);
+	if (suite.requirementId) lines.push(`- **Requirement:** #${suite.requirementId}`);
+	if (suite.url) lines.push(`- **URL:** ${suite.url}`);
+	return lines.join("\n");
+}
+
+export function formatTestSuiteList(suites: TestSuiteLike[]): string {
+	if (suites.length === 0) return "No test suites found.";
+
+	const lines: string[] = [];
+	for (const suite of suites) {
+		const typeLabel = SUITE_TYPE_LABELS[suite.suiteType ?? ""] ?? suite.suiteType ?? "?";
+		const indent = suite.parentSuite ? "  " : "";
+		const caseCount = suite.testCaseCount !== undefined ? ` (${suite.testCaseCount} cases)` : "";
+		lines.push(`${indent}#${suite.id ?? "?"} ${suite.name ?? "?"}${caseCount} [${typeLabel}]`);
+	}
+	return lines.join("\n");
+}
+
+interface TestCaseLike {
+	workItem?: {
+		id?: number;
+		name?: string;
+		workItemFields?: Array<Record<string, unknown>>;
+	};
+	order?: number;
+	pointAssignments?: Array<{ configurationId?: number; configurationName?: string }>;
+}
+
+export function formatTestCase(tc: TestCaseLike): string {
+	const lines: string[] = [];
+	const wi = tc.workItem;
+	lines.push(`**${wi?.name ?? "Unknown"}** (id: ${wi?.id ?? "?"})`);
+	const fields = wi?.workItemFields?.[0] ?? {};
+	if (fields["System.State"]) lines.push(`- **State:** ${fields["System.State"]}`);
+	if (fields["System.AssignedTo"]) lines.push(`- **Assigned To:** ${fields["System.AssignedTo"]}`);
+	if (fields["Microsoft.VSTS.Common.Priority"]) lines.push(`- **Priority:** ${fields["Microsoft.VSTS.Common.Priority"]}`);
+	if (tc.order !== undefined) lines.push(`- **Order:** ${tc.order}`);
+	const configs = tc.pointAssignments ?? [];
+	if (configs.length > 0) {
+		lines.push(`- **Configurations:** ${configs.map((c) => c.configurationName ?? `#${c.configurationId}`).join(", ")}`);
+	}
+	return lines.join("\n");
+}
+
+export function formatTestCaseList(cases: TestCaseLike[]): string {
+	if (cases.length === 0) return "No test cases found.";
+
+	const lines: string[] = [];
+	for (const tc of cases) {
+		const wi = tc.workItem;
+		const fields = wi?.workItemFields?.[0] ?? {};
+		const state = fields["System.State"] ? ` [${fields["System.State"]}]` : "";
+		const assignee = fields["System.AssignedTo"] ? ` → ${fields["System.AssignedTo"]}` : "";
+		lines.push(`#${wi?.id ?? "?"} ${wi?.name ?? "?"}${state}${assignee}`);
+	}
+	return lines.join("\n");
+}
+
+interface TestPointLike {
+	id?: number;
+	testCaseReference?: { id?: number; name?: string };
+	configuration?: { id?: string; name?: string };
+	outcome?: string;
+	state?: string;
+	tester?: { displayName?: string; uniqueName?: string };
+	lastRunBuildNumber?: string | null;
+	url?: string;
+}
+
+export function formatTestPoint(point: TestPointLike): string {
+	const lines: string[] = [];
+	const outcomeIcon = TEST_OUTCOME_ICONS[point.outcome ?? ""] ?? "❓";
+	lines.push(`**Point #${point.id ?? "?"}** — ${point.testCaseReference?.name ?? "?"} (case #${point.testCaseReference?.id ?? "?"})`);
+	lines.push(`- **Outcome:** ${outcomeIcon} ${point.outcome ?? "none"}`);
+	if (point.configuration?.name) lines.push(`- **Configuration:** ${point.configuration.name}`);
+	if (point.tester?.displayName) lines.push(`- **Tester:** ${point.tester.displayName}`);
+	if (point.state) lines.push(`- **State:** ${point.state}`);
+	if (point.lastRunBuildNumber) lines.push(`- **Last Build:** ${point.lastRunBuildNumber}`);
+	return lines.join("\n");
+}
+
+export function formatTestPointList(points: TestPointLike[]): string {
+	if (points.length === 0) return "No test points found.";
+
+	const lines: string[] = [];
+	for (const point of points) {
+		const outcomeIcon = TEST_OUTCOME_ICONS[point.outcome ?? ""] ?? "❓";
+		const config = point.configuration?.name ?? "?";
+		const tester = point.tester?.displayName ?? "?";
+		lines.push(`#${point.id ?? "?"} ${point.testCaseReference?.name ?? "?"} — ${outcomeIcon} ${point.outcome ?? "?"} — ${config} — ${tester}`);
+	}
+	return lines.join("\n");
+}
+
+interface TestRunLike {
+	id?: number;
+	name?: string;
+	state?: string;
+	plan?: { id?: number; name?: string };
+	startedDate?: string;
+	completedDate?: string | null;
+	totalTests?: number;
+	passedTests?: number;
+	failedTests?: number;
+	incompleteTests?: number;
+	notApplicableTests?: number;
+	owner?: { displayName?: string; uniqueName?: string };
+	url?: string;
+}
+
+export function formatTestRun(run: TestRunLike): string {
+	const lines: string[] = [];
+	const stateIcon = TEST_RUN_STATE_ICONS[run.state ?? ""] ?? "⏸️";
+	lines.push(`# Run #${run.id ?? "?"} — ${run.name ?? "Unknown"}`);
+	lines.push(`- **State:** ${stateIcon} ${run.state ?? "unknown"}`);
+	if (run.plan) lines.push(`- **Plan:** ${run.plan.name ?? "?"} (#${run.plan.id ?? "?"})`);
+
+	const total = run.totalTests ?? 0;
+	const passed = run.passedTests ?? 0;
+	const failed = run.failedTests ?? 0;
+	const incomplete = run.incompleteTests ?? 0;
+	lines.push(`- **Results:** ${passed}/${total} passed, ${failed} failed, ${incomplete} incomplete`);
+
+	if (run.startedDate) {
+		lines.push(`- **Started:** ${new Date(run.startedDate).toISOString().slice(0, 19).replace("T", " ")}`);
+	}
+	if (run.completedDate) {
+		lines.push(`- **Completed:** ${new Date(run.completedDate).toISOString().slice(0, 19).replace("T", " ")}`);
+		lines.push(`- **Duration:** ${formatDuration(run.startedDate, run.completedDate)}`);
+	}
+	if (run.owner?.displayName) lines.push(`- **Owner:** ${run.owner.displayName}`);
+	if (run.url) lines.push(`- **URL:** ${run.url}`);
+	return lines.join("\n");
+}
+
+export function formatTestRunList(runs: TestRunLike[]): string {
+	if (runs.length === 0) return "No test runs found.";
+
+	const lines: string[] = [];
+	for (const run of runs) {
+		const stateIcon = TEST_RUN_STATE_ICONS[run.state ?? ""] ?? "⏸️";
+		const passed = run.passedTests ?? 0;
+		const total = run.totalTests ?? 0;
+		const date = run.startedDate ? new Date(run.startedDate).toISOString().slice(0, 10) : "?";
+		lines.push(`#${run.id ?? "?"} ${run.name ?? "?"} — ${stateIcon} ${run.state ?? "?"} — ${passed}/${total} passed (${date})`);
+	}
+	return lines.join("\n");
+}
+
+interface TestResultLike {
+	id?: number;
+	testCaseTitle?: string;
+	testCase?: { id?: number; name?: string };
+	outcome?: string;
+	state?: string;
+	durationInMs?: number;
+	startedDate?: string;
+	completedDate?: string;
+	errorMessage?: string | null;
+	comment?: string | null;
+	runBy?: { displayName?: string; uniqueName?: string };
+	url?: string;
+}
+
+export function formatTestResult(result: TestResultLike): string {
+	const lines: string[] = [];
+	const outcomeIcon = TEST_OUTCOME_ICONS[result.outcome?.toLowerCase() ?? ""] ?? "❓";
+	lines.push(`**${result.testCaseTitle ?? result.testCase?.name ?? "Unknown"}** (result #${result.id ?? "?"})`);
+	lines.push(`- **Outcome:** ${outcomeIcon} ${result.outcome ?? "unknown"}`);
+	if (result.durationInMs !== undefined) {
+		const seconds = (result.durationInMs / 1000).toFixed(1);
+		lines.push(`- **Duration:** ${seconds}s`);
+	}
+	if (result.runBy?.displayName) lines.push(`- **Run By:** ${result.runBy.displayName}`);
+	if (result.errorMessage) lines.push(`- **Error:** ${result.errorMessage}`);
+	if (result.comment) lines.push(`- **Comment:** ${result.comment}`);
+	return lines.join("\n");
+}
+
+export function formatTestResultList(results: TestResultLike[]): string {
+	if (results.length === 0) return "No test results found.";
+
+	const lines: string[] = [];
+	for (const result of results) {
+		const outcomeIcon = TEST_OUTCOME_ICONS[result.outcome?.toLowerCase() ?? ""] ?? "❓";
+		const duration = result.durationInMs !== undefined ? `${(result.durationInMs / 1000).toFixed(1)}s` : "?";
+		lines.push(`#${result.id ?? "?"} ${result.testCaseTitle ?? "?"} — ${outcomeIcon} ${result.outcome ?? "?"} (${duration})`);
+	}
+	return lines.join("\n");
+}
