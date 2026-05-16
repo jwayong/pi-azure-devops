@@ -2,18 +2,6 @@
 
 Azure DevOps integration for [Pi coding agent](https://github.com/earendil-works/pi-mono) — work items, pipelines, repos, test plans, and more.
 
-## Install
-
-```bash
-pi install npm:@jwayong/pi-azure-devops
-```
-
-Or try without installing:
-
-```bash
-pi -e npm:@jwayong/pi-azure-devops
-```
-
 ## Features
 
 - **52 tools** — work items, boards, sprints, repos, pull requests, pipelines, test plans, and more
@@ -44,7 +32,21 @@ pi -e npm:@jwayong/pi-azure-devops
 
 ## Quick Start
 
-### 1. Set environment variables
+### 1. Install the package
+
+```bash
+pi install npm:@jwayong/pi-azure-devops
+```
+
+Or try without installing:
+
+```bash
+pi -e npm:@jwayong/pi-azure-devops
+```
+
+### 2. Configure Azure DevOps access
+
+Set environment variables in your shell (add to `~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
 export ADO_ORG_URL="https://dev.azure.com/myorg"
@@ -52,7 +54,7 @@ export ADO_PROJECT="MyProject"
 export ADO_PAT="your-personal-access-token"
 ```
 
-Or configure in `.pi/settings.json`:
+Or add to your project's `.pi/settings.json`:
 
 ```jsonc
 {
@@ -65,21 +67,33 @@ Or configure in `.pi/settings.json`:
 }
 ```
 
-### 2. Verify connection
+**PAT setup:** Go to Azure DevOps → User Settings → Personal Access Tokens → New Token. Grant `Read` and `Work Items` scopes (add more scopes as needed for repos, pipelines, test plans).
+
+### 3. Verify connection
+
+Start a Pi session and ask it to run the doctor tool:
 
 ```
-> Use the ado_doctor tool to check my ADO configuration
+$ pi
+> Run ado_doctor to check my ADO setup
 ```
 
-### 3. Use it
+`ado_doctor` verifies your configuration, authentication, and connection to Azure DevOps. If everything is working, you'll see a healthy report.
+
+### 4. Use it
+
+All ADO tools are available as natural language requests inside Pi:
 
 ```
 > Query all active bugs assigned to me
 > Create a user story titled "Implement login page" with description "..."
 > Update work item #1234 state to Closed
+> List all pipelines in the project
+> What's the status of test run #501?
+> Show me the sprint health for the Engineering team
 ```
 
-### 4. Use prompt templates
+### 5. Use prompt templates
 
 Type `/` in the prompt editor to see available templates:
 
