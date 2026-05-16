@@ -61,7 +61,7 @@ Or add to your project's `.pi/settings.json`:
   "ado": {
     "orgUrl": "https://dev.azure.com/myorg",
     "project": "MyProject",
-    "authMethod": "pat",
+    "pat": "your-personal-access-token",
     "safetyLevel": "confirm"
   }
 }
