@@ -61,11 +61,12 @@ Or add to your project's `.pi/settings.json`:
   "ado": {
     "orgUrl": "https://dev.azure.com/myorg",
     "project": "MyProject",
-    "pat": "your-personal-access-token",
     "safetyLevel": "confirm"
   }
 }
 ```
+
+> **Note:** The PAT must be set via the `ADO_PAT` environment variable. It cannot be stored in settings.json for security reasons.
 
 **PAT setup:** Go to Azure DevOps → User Settings → Personal Access Tokens → New Token. Grant `Read` and `Work Items` scopes (add more scopes as needed for repos, pipelines, test plans).
 
