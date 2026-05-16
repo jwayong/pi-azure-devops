@@ -1,6 +1,6 @@
 # @jwayong/pi-azure-devops
 
-Azure DevOps integration for [Pi coding agent](https://github.com/earendil-works/pi-mono) — work items, pipelines, repos, and more.
+Azure DevOps integration for [Pi coding agent](https://github.com/earendil-works/pi-mono) — work items, pipelines, repos, test plans, and more.
 
 ## Install
 
@@ -16,15 +16,15 @@ pi -e npm:@jwayong/pi-azure-devops
 
 ## Features
 
-- **42 tools** — work items, boards, sprints, repos, pull requests, pipelines, and more
+- **52 tools** — work items, boards, sprints, repos, pull requests, pipelines, test plans, and more
 - **Dual auth** — PAT (`ADO_PAT`) or Azure CLI (`az`) with auto-detect
 - **Dual config** — environment variables or `.pi/settings.json`
 - **Safety model** — `open` / `confirm` / `readonly` (default: `confirm`)
 - **Mock mode** — work offline with fixture data (`ADO_MOCK=1`)
 - **Autocomplete** — `#1234` work item ID completion
 - **Skill** — `ado-workitems` with WIQL, board, sprint, capacity, and pipeline reference
-- **11 prompt templates** — triage, status reports, batch create, review history, sprint health, sprint planning, board review, PR review, PR creator, pipeline status, deploy
-- **752 tests** — comprehensive coverage, all offline
+- **13 prompt templates** — triage, status reports, batch create, review history, sprint health, sprint planning, board review, PR review, PR creator, pipeline status, deploy, test status, test runner
+- **~870 tests** — comprehensive coverage, all offline
 
 ### What's Included
 
@@ -39,11 +39,8 @@ pi -e npm:@jwayong/pi-azure-devops
 | Pull Requests | List/get PRs, threads, commits, create/update, comment, vote | 4 | 4 |
 | Policies | List policies, get evaluations | 2 | — |
 | Pipelines | List/get pipelines, list/get runs, artifacts, logs, timeline, run/cancel/retry | 7 | 3 |
+| Test Plans | List/get plans, suites, cases, points, runs; create runs, update results | 8 | 2 |
 | Config | Doctor (health check) | 1 | — |
-
-### Coming Later
-
-- Phase 4: Test Plans
 
 ## Quick Start
 
@@ -97,6 +94,8 @@ Type `/` in the prompt editor to see available templates:
 | `/ado-board-review <board> [team]` | Board review — analyze setup and suggest improvements |
 | `/ado-pipeline-status [pipeline-id]` | Pipeline health check — recent runs, failure analysis |
 | `/ado-deploy <pipeline-id> [branch]` | Deployment pipeline with pre-deploy safety checks |
+| `/ado-test-status [run-id]` | Test run status report — pass/fail rates, failure analysis |
+| `/ado-test-runner [plan-id]` | Create and manage a test run — select plan/suite, record results |
 
 Examples:
 
@@ -163,6 +162,14 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 | `ado_get_run_artifacts` | Get artifacts produced by a pipeline run |
 | `ado_get_run_logs` | Get log entries for a pipeline run |
 | `ado_get_run_timeline` | Get stages/jobs/tasks timeline for a pipeline run |
+| `ado_list_test_plans` | List test plans in the project |
+| `ado_get_test_plan` | Get test plan detail by ID |
+| `ado_list_test_suites` | List test suites in a plan |
+| `ado_get_test_suite` | Get test suite detail by ID |
+| `ado_list_test_cases` | List test cases in a suite |
+| `ado_list_test_points` | List test points with execution status |
+| `ado_list_test_runs` | List test runs with optional filters |
+| `ado_get_test_run` | Get test run detail with statistics |
 
 ### Write Tools (gated by safety level)
 
@@ -182,10 +189,12 @@ Set via `ADO_SAFETY_LEVEL` env var or `ado.safetyLevel` in settings.
 | `ado_run_pipeline` | Queue/trigger a pipeline run |
 | `ado_cancel_run` | Cancel an in-progress pipeline run |
 | `ado_retry_run` | Retry a failed pipeline run |
+| `ado_create_test_run` | Create a test run from plan + suites |
+| `ado_update_test_results` | Update test case outcomes in a run |
 
 ## Prompt Templates
 
-The package includes 11 prompt templates for common ADO workflows. They're automatically available after installing the package.
+The package includes 13 prompt templates for common ADO workflows. They're automatically available after installing the package.
 
 | Command | Description | Arguments |
 |---------|-------------|----------|
@@ -200,6 +209,8 @@ The package includes 11 prompt templates for common ADO workflows. They're autom
 | `/ado-pipeline-status` | Pipeline health check — recent runs, failures, duration trends | Optional pipeline ID |
 | `/ado-deploy` | Run a deployment pipeline with pre-deploy safety checks | Pipeline ID, optional branch/params |
 | `/ado-pr-creator` | Create a PR — suggest title/description from branch context | Repository ID, source branch |
+| `/ado-test-status` | Test run status report — pass/fail rates, failure details | Optional run ID |
+| `/ado-test-runner` | Create and manage a test run — guided workflow | Optional plan ID |
 
 ### Usage
 
@@ -232,6 +243,12 @@ Type `/ado-` in the prompt editor to see autocomplete suggestions. Each template
 
 # Deploy with safety checks
 /ado-deploy 2 release/v2
+
+# Check test run status
+/ado-test-status 501
+
+# Create and manage a test run
+/ado-test-runner 101
 ```
 
 If you installed the package locally (e.g., `pi -e ./`), the templates are loaded from the `prompts/` directory as declared in `package.json`.

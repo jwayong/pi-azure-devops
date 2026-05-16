@@ -2,7 +2,7 @@
 
 > A Pi package providing rich Azure DevOps integration, starting with work items and designed to grow into a comprehensive ADO integration (pipelines, repos, PRs, test plans, etc.).
 
-## Status: Phase 2 Complete (v0.4.0). Phase 4 planned — #72–#80
+## Status: Phase 4 Complete (v0.5.0). 52 tools, 13 prompts, ~870 tests.
 
 ## Package
 
